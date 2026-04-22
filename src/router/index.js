@@ -30,6 +30,22 @@ const routes = [
       {
         path: '/workouts/:id/edit',
         component: () => import('../views/EditWorkoutView.vue')
+      },
+      {
+        path: '/exercises',
+        component: () => import('../views/ExercisesView.vue')
+      },
+      {
+        path: '/exercises/create',
+        component: () => import('../views/ExerciseFormView.vue')
+      },
+      {
+        path: '/exercises/:id/edit',
+        component: () => import('../views/ExerciseFormView.vue')
+      },
+      {
+        path: '/workouts/create',
+        component: () => import('../views/EditWorkoutView.vue')
       }
     ]
   }

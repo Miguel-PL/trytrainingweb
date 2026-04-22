@@ -1,58 +1,61 @@
 <script setup>
-import { onMounted, ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { apiFetch } from '../services/api'
-import { useRouter } from 'vue-router'
 import { TrashIcon } from '@heroicons/vue/24/outline'
 import draggable from 'vuedraggable'
 
 const router = useRouter()
 const route = useRoute()
+
 const workout = ref(null)
 const exercises = ref([])
-const search = ref('')
-const selectedCategory = ref('')
 const categories = ref([])
 
+const isEdit = !!route.params.id
+
+// SAVE 
 const saveWorkout = async () => {
-  try {
-    const payload = {
-      name: workout.value.name,
-      date: workout.value.date,
-      blocks: workout.value.blocks.map(block => ({
-        id: block.id,
-        name: block.name,
-        order: block.order,
-
-        exercises: block.block_exercises.map(ex => ({
-          id: ex.id,
-          exercise_id: ex.exercise_id,
-          type: ex.type,
-          reps: ex.reps,
-          time: ex.time,
-          intensity: ex.intensity,
-          order: ex.order
-        }))
+  const payload = {
+    name: workout.value.name,
+    date: workout.value.date,
+    blocks: workout.value.blocks.map(block => ({
+      id: block.id,
+      name: block.name,
+      order: block.order,
+      exercises: block.block_exercises.map(ex => ({
+        id: ex.id,
+        exercise_id: ex.exercise_id,
+        type: ex.type,
+        reps: ex.reps,
+        time: ex.time,
+        intensity: ex.intensity,
+        order: ex.order
       }))
-    }
+    }))
+  }
 
-    console.log('PAYLOAD:', payload)
-
+  if (isEdit) {
     await apiFetch(`/workouts/${route.params.id}`, {
       method: 'PUT',
-      body: JSON.stringify(payload)
+      body: payload
     })
-
-    alert('Sesión actualizada')
-    router.push('/workouts')
-
-  } catch (error) {
-    console.error(error)
-    alert('Error al guardar')
+  } else {
+    await apiFetch('/workouts', {
+      method: 'POST',
+      body: payload
+    })
   }
+
+  router.push('/workouts')
 }
 
+// BLOQUES
 const addBlock = () => {
+  if (!workout.value.blocks) {
+    workout.value.blocks = []
+  }
+
   workout.value.blocks.push({
     id: null,
     name: 'Nuevo bloque',
@@ -67,40 +70,7 @@ const removeBlock = (blockToRemove) => {
   )
 }
 
-const getFilteredExercises = (ex) => {
-  return exercises.value
-    .filter(e => {
-      const matchName = e.name
-        .toLowerCase()
-        .includes((ex.search || '').toLowerCase())
-
-      const matchCategory = ex.selectedCategory
-        ? (e.categories || []).some(c => c.id === ex.selectedCategory)
-        : true
-
-      return matchName && matchCategory
-    })
-    .sort((a, b) => a.name.localeCompare(b.name))
-}
-
-onMounted(async () => {
-  const data = await apiFetch(`/workouts/${route.params.id}`)
-  workout.value = data
-
-  const exData = await apiFetch('/exercises')
-  exercises.value = exData
-
-  const catData = await apiFetch('/categories')
-  categories.value = catData
-
-  workout.value.blocks.forEach(block => {
-    block.block_exercises.forEach(ex => {
-      ex.search = ''
-      ex.selectedCategory = ''
-    })
-  })
-})
-
+// EJERCICIOS
 const addExercise = (block) => {
   block.block_exercises.push({
     id: null,
@@ -116,14 +86,6 @@ const addExercise = (block) => {
   })
 }
 
-const handleTypeChange = (ex) => {
-  if (ex.type === 'reps') {
-    ex.time = null
-  } else {
-    ex.reps = null
-  }
-}
-
 const removeExercise = (block, exerciseToRemove) => {
   const ok = confirm('¿Eliminar ejercicio?')
   if (!ok) return
@@ -131,6 +93,11 @@ const removeExercise = (block, exerciseToRemove) => {
   block.block_exercises = block.block_exercises.filter(
     ex => ex !== exerciseToRemove
   )
+}
+
+const handleTypeChange = (ex) => {
+  if (ex.type === 'reps') ex.time = null
+  else ex.reps = null
 }
 
 const updateOrder = (block) => {
@@ -145,10 +112,54 @@ const updateBlockOrder = () => {
   })
 }
 
+// FILTRO EJERCICIOS
+const getFilteredExercises = (ex) => {
+  return exercises.value
+    .filter(e => {
+      const matchName = e.name
+        .toLowerCase()
+        .includes((ex.search || '').toLowerCase())
+
+      const matchCategory = ex.selectedCategory
+        ? (e.categories || []).some(c => c.id == ex.selectedCategory)
+        : true
+
+      return matchName && matchCategory
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, 10)
+}
+
 const handleSelectExercise = (ex) => {
   ex.search = ''
   ex.selectedCategory = ''
 }
+
+const selectExercise = (ex, e) => {
+  ex.exercise_id = e.id
+  ex.exercise = e
+  ex.search = ''
+}
+
+onMounted(async () => {
+  if (isEdit) {
+    const data = await apiFetch(`/workouts/${route.params.id}`)
+    workout.value = data
+  } else {
+    workout.value = {
+      name: '',
+      date: '',
+      blocks: []
+    }
+  }
+
+  const exData = await apiFetch('/exercises?all=1')
+  exercises.value = exData.data || exData
+
+  const catData = await apiFetch('/categories')
+  categories.value = catData
+})
+
 </script>
 
 <template>
@@ -198,55 +209,73 @@ const handleSelectExercise = (ex) => {
 
             </div>
 
-            <draggable v-model="block.block_exercises" item-key="id" class="flex flex-col gap-2"
+            <draggable v-model="block.block_exercises" item-key="id" class="flex flex-col gap-4"
               @change="updateOrder(block)" handle=".handle">
               <template #item="{ element: ex }">
 
-                <div class="flex gap-2 items-center">
-                  <div class="flex flex-col w-1/2">
-                    <div class="flex justify-between gap-2">
+                <div class="flex gap-2 items-center w-full">
 
-                      <!-- BUSCADOR -->
-                      <input v-model="ex.search" placeholder="Buscar ejercicio (ej: press, squat...)"
-                        class="bg-gray-800 text-white p-1 rounded mb-1 w-100" />
+                  <!-- IZQUIERDA -->
+                  <div class="flex gap-2 flex-1 items-start">
 
-                      <!-- FILTRO CATEGORÍA -->
-                      <select v-model="ex.selectedCategory" class="bg-gray-800 text-white p-1 rounded mb-1"">
-                        <option value="">Todas las categorías</option>
+                    <!-- BUSCADOR -->
+                    <div class="relative flex-1">
 
-                        <option v-for="c in categories" :key="c.id" :value="c.id">
-                        {{ c.name }}
-                        </option>
-                        <option v-if="getFilteredExercises(ex).length === 0" disabled>
-                          No hay resultados
-                        </option>
-                      </select>
+                      <input v-model="ex.search" placeholder="Buscar ejercicio..."
+                        class="bg-gray-800 text-white p-2 rounded w-full" />
+
+                      <!-- RESULTADOS -->
+                      <div v-if="ex.search && getFilteredExercises(ex).length"
+                        class="absolute z-10 bg-gray-900 border border-gray-700 w-full max-h-40 overflow-y-auto mt-1 rounded">
+                        <div v-for="e in getFilteredExercises(ex)" :key="e.id" @click="selectExercise(ex, e)"
+                          class="p-2 hover:bg-gray-700 cursor-pointer">
+                          {{ e.name }}
+                        </div>
+                      </div>
+
+                      <!-- SELECCIONADO -->
+                      <div class="mt-1 h-6 flex items-center">
+
+                        <div v-if="ex.exercise?.name"
+                          class="bg-green-600 text-white px-10 py-1 rounded flex items-center gap-1 mt-3">
+                          {{ ex.exercise.name }}
+                          <span @click="ex.exercise = null; ex.exercise_id = null" class="cursor-pointer text-xs">
+                            ✕
+                          </span>
+                        </div>
+
+                        <div v-else class="text-gray-500 text-xs">
+                          Selecciona un ejercicio.
+                        </div>
+
+                      </div>
+
                     </div>
-                    <!-- SELECT EJERCICIOS FILTRADO -->
-                    <select v-model="ex.exercise_id" class="bg-gray-800 text-yellow-300 p-1 rounded"
-                      @change="handleSelectExercise(ex)">
 
-                      <option disabled value="">Seleccionar ejercicio</option>
-
-                      <option v-for="e in getFilteredExercises(ex)" :key="e.id" :value="e.id">
-                        {{ e.name }}
+                    <!-- CATEGORÍA -->
+                    <select v-model="ex.selectedCategory" class="bg-gray-800 text-white p-2 rounded w-40">
+                      <option value="">Todas</option>
+                      <option v-for="c in categories" :key="c.id" :value="c.id">
+                        {{ c.name }}
                       </option>
                     </select>
+
                   </div>
 
-
+                  <!-- DERECHA -->
                   <select v-model="ex.type" @change="handleTypeChange(ex)"
-                    class="bg-gray-800 text-white p-1 rounded w-1/4">
-                    <option value="reps">Repeticiones</option>
+                    class="bg-gray-800 text-white p-2 rounded w-32">
+                    <option value="reps">Reps</option>
                     <option value="time">Tiempo</option>
                   </select>
 
-                  <input v-model="ex.reps" placeholder="repeticiones" :disabled="ex.type !== 'reps'"
-                    class="bg-gray-800 text-white p-1 rounded w-1/4" @input="ex.time = null" />
+                  <input v-model="ex.reps" placeholder="reps" :disabled="ex.type !== 'reps'"
+                    class="bg-gray-800 text-white p-2 rounded w-24" @input="ex.time = null" />
 
-                  <input v-model="ex.time" placeholder="tiempo (segundos)" :disabled="ex.type !== 'time'"
-                    class="bg-gray-800 text-white p-1 rounded w-1/4" @input="ex.reps = null" />
+                  <input v-model="ex.time" placeholder="seg" :disabled="ex.type !== 'time'"
+                    class="bg-gray-800 text-white p-2 rounded w-24" @input="ex.reps = null" />
 
+                  <!-- ICONOS -->
                   <span class="handle cursor-move text-gray-400 hover:text-white">
                     ☰
                   </span>
@@ -256,6 +285,7 @@ const handleSelectExercise = (ex) => {
                   </button>
 
                 </div>
+
               </template>
             </draggable>
           </div>

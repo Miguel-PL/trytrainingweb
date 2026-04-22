@@ -1,6 +1,6 @@
 <template>
   <div class="flex min-h-screen bg-black text-white">
-    
+
     <!-- Sidebar -->
     <aside class="w-64 bg-gray-900 p-4">
       <h2 class="text-yellow-300 text-xl font-bold mb-6">
