@@ -163,141 +163,285 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 text-white">
+  <div class="px-6 py-8 text-white">
+    <!-- Cabecera -->
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <h1 class="text-4xl font-black tracking-tight">
+          {{ isEdit ? 'Editar sesión' : 'Nueva sesión' }}
+          <span class="ml-1 flex flex-col h-[3px] w-10 align-middle bg-lime-400" />
+        </h1>
+        <p class="mt-2 text-sm text-white/55">
+          {{ isEdit ? 'Organiza bloques y ejercicios de la sesión.' : 'Crea una sesión y define su estructura.' }}
+        </p>
+      </div>
+    </div>
 
-    <h1 class="text-2xl mb-4">Editar sesión</h1>
-    <button @click="addBlock" class="bg-blue-500 text-white px-3 py-1 rounded mb-4">
-      + Añadir bloque
-    </button>
-
-    <div v-if="workout">
-      <input v-model="workout.name" class="bg-gray-800 text-white p-2 rounded w-full mb-2" />
-
-      <input type="date" v-model="workout.date" class="bg-gray-800 text-white p-2 rounded w-full mb-4" />
-
-      <draggable v-model="workout.blocks" item-key="id" class="flex flex-col gap-4" @change="updateBlockOrder"
-        handle=".handle">
-        <template #item="{ element: block }">
-
-          <div class="mb-4 bg-gray-900 p-4 rounded">
-
-            <div class="flex justify-between items-center mb-2">
-
-              <!-- IZQUIERDA -->
-              <div class="flex items-center gap-2">
-
-                <!-- HANDLE -->
-                <span class="handle cursor-move text-gray-400 hover:text-white">
-                  ☰
-                </span>
-
-                <!-- INPUT NOMBRE -->
-                <input v-model="block.name" class="bg-gray-700 text-white p-2 rounded" />
-
-              </div>
-
-              <!-- DERECHA -->
-              <div class="flex gap-2">
-                <button @click="addExercise(block)" class="bg-green-500 px-3 py-1 rounded text-sm">
-                  + Ejercicio
-                </button>
-
-                <button @click="removeBlock(block)" class="bg-red-500 px-3 py-1 rounded text-sm">
-                  Eliminar
-                </button>
-              </div>
-
-            </div>
-
-            <draggable v-model="block.block_exercises" item-key="id" class="flex flex-col gap-4"
-              @change="updateOrder(block)" handle=".handle">
-              <template #item="{ element: ex }">
-
-                <div class="flex gap-2 items-center w-full">
-
-                  <!-- IZQUIERDA -->
-                  <div class="flex gap-2 flex-1 items-start">
-
-                    <!-- BUSCADOR -->
-                    <div class="relative flex-1">
-
-                      <input v-model="ex.search" placeholder="Buscar ejercicio..."
-                        class="bg-gray-800 text-white p-2 rounded w-full" />
-
-                      <!-- RESULTADOS -->
-                      <div v-if="ex.search && getFilteredExercises(ex).length"
-                        class="absolute z-10 bg-gray-900 border border-gray-700 w-full max-h-40 overflow-y-auto mt-1 rounded">
-                        <div v-for="e in getFilteredExercises(ex)" :key="e.id" @click="selectExercise(ex, e)"
-                          class="p-2 hover:bg-gray-700 cursor-pointer">
-                          {{ e.name }}
-                        </div>
-                      </div>
-
-                      <!-- SELECCIONADO -->
-                      <div class="mt-1 h-6 flex items-center">
-
-                        <div v-if="ex.exercise?.name"
-                          class="bg-green-600 text-white px-10 py-1 rounded flex items-center gap-1 mt-3">
-                          {{ ex.exercise.name }}
-                          <span @click="ex.exercise = null; ex.exercise_id = null" class="cursor-pointer text-xs">
-                            ✕
-                          </span>
-                        </div>
-
-                        <div v-else class="text-gray-500 text-xs">
-                          Selecciona un ejercicio.
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    <!-- CATEGORÍA -->
-                    <select v-model="ex.selectedCategory" class="bg-gray-800 text-white p-2 rounded w-40">
-                      <option value="">Todas</option>
-                      <option v-for="c in categories" :key="c.id" :value="c.id">
-                        {{ c.name }}
-                      </option>
-                    </select>
-
-                  </div>
-
-                  <!-- DERECHA -->
-                  <select v-model="ex.type" @change="handleTypeChange(ex)"
-                    class="bg-gray-800 text-white p-2 rounded w-32">
-                    <option value="reps">Reps</option>
-                    <option value="time">Tiempo</option>
-                  </select>
-
-                  <input v-model="ex.reps" placeholder="reps" :disabled="ex.type !== 'reps'"
-                    class="bg-gray-800 text-white p-2 rounded w-24" @input="ex.time = null" />
-
-                  <input v-model="ex.time" placeholder="seg" :disabled="ex.type !== 'time'"
-                    class="bg-gray-800 text-white p-2 rounded w-24" @input="ex.reps = null" />
-
-                  <!-- ICONOS -->
-                  <span class="handle cursor-move text-gray-400 hover:text-white">
-                    ☰
-                  </span>
-
-                  <button @click="removeExercise(block, ex)" class="p-1 hover:bg-gray-700 rounded">
-                    <TrashIcon class="h-4 w-4 text-red-500" />
-                  </button>
-
-                </div>
-
-              </template>
-            </draggable>
+    <div v-if="workout" class="mt-8 mx-auto w-full max-w-5xl">
+      <!-- Datos sesión -->
+      <div class="rounded-xl border border-white/10 bg-white/4 shadow-[0_20px_50px_-35px_rgba(0,0,0,0.8)]">
+        <div class="border-b border-white/10 px-6 py-5">
+          <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
+            Detalles de la sesión
           </div>
 
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-[11px] tracking-[0.22em] uppercase text-white/50">Nombre</label>
+              <input
+                v-model="workout.name"
+                placeholder="Ej: Full body power blast"
+                class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+              />
+            </div>
 
-        </template>
-      </draggable>
+            <div class="space-y-2">
+              <label class="text-[11px] tracking-[0.22em] uppercase text-white/50">Fecha</label>
+              <input
+                type="date"
+                v-model="workout.date"
+                class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloques -->
+        <div class="px-6 py-6">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center justify-between gap-3 sm:justify-start">
+              <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
+                Bloques
+              </div>
+              <div class="text-xs text-white/45">
+                {{ workout.blocks?.length ?? 0 }} bloque(s)
+              </div>
+            </div>
+
+            <button
+              type="button"
+              @click="addBlock"
+              class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 text-xs font-extrabold tracking-wide text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-white/8"
+            >
+              + AÑADIR BLOQUE
+            </button>
+          </div>
+
+          <draggable
+            v-model="workout.blocks"
+            item-key="id"
+            class="mt-4 flex flex-col gap-4"
+            @change="updateBlockOrder"
+            handle=".handle"
+          >
+            <template #item="{ element: block }">
+              <div class="rounded-xl border border-white/10 bg-black/30">
+                <div class="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="flex items-center gap-3">
+                    <button
+                      type="button"
+                      class="handle inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
+                      aria-label="Mover bloque"
+                    >
+                      ☰
+                    </button>
+
+                    <input
+                      v-model="block.name"
+                      class="w-full max-w-[420px] rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <button
+                      type="button"
+                      @click="addExercise(block)"
+                      class="inline-flex h-9 items-center justify-center rounded-md border border-lime-300/20 bg-lime-400 px-4 text-xs font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300"
+                    >
+                      + EJERCICIO
+                    </button>
+
+                    <button
+                      type="button"
+                      @click="removeBlock(block)"
+                      class="inline-flex h-9 items-center justify-center rounded-md border border-white/10 bg-white/5 px-4 text-xs font-extrabold tracking-wide text-white/75 transition hover:bg-white/8"
+                    >
+                      ELIMINAR BLOQUE
+                    </button>
+                  </div>
+                </div>
+
+                <div class="px-5 py-4">
+                  <draggable
+                    v-model="block.block_exercises"
+                    item-key="id"
+                    class="flex flex-col gap-3"
+                    @change="updateOrder(block)"
+                    handle=".handle"
+                  >
+                    <template #item="{ element: ex }">
+                      <div class="rounded-lg border border-white/10 bg-white/3 px-4 py-4">
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+                          <!-- Selección -->
+                          <div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start">
+                            <div class="relative w-full flex-1">
+                              <input
+                                v-model="ex.search"
+                                placeholder="Buscar ejercicio..."
+                                class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              />
+
+                              <div
+                                v-if="ex.search && getFilteredExercises(ex).length"
+                                class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
+                              >
+                                <button
+                                  v-for="e in getFilteredExercises(ex)"
+                                  :key="e.id"
+                                  type="button"
+                                  @click="selectExercise(ex, e)"
+                                  class="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white/80 hover:bg-white/5"
+                                >
+                                  <span class="font-semibold">{{ e.name }}</span>
+                                </button>
+                              </div>
+
+                              <div class="mt-2 min-h-[28px]">
+                                <div
+                                  v-if="ex.exercise?.name"
+                                  class="inline-flex items-center gap-2 rounded-md border border-lime-300/20 bg-lime-400/15 px-3 py-2 text-xs font-semibold text-lime-200"
+                                >
+                                  {{ ex.exercise.name }}
+                                  <button
+                                    type="button"
+                                    @click="ex.exercise = null; ex.exercise_id = null"
+                                    class="rounded px-1 text-lime-200/80 hover:text-lime-200"
+                                    aria-label="Quitar"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div v-else class="text-xs text-white/40">
+                                  Selecciona un ejercicio.
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="w-full sm:w-[220px]">
+                              <select
+                                v-model="ex.selectedCategory"
+                                class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                              >
+                                <option value="">Todas</option>
+                                <option v-for="c in categories" :key="c.id" :value="c.id">
+                                  {{ c.name }}
+                                </option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <!-- Config -->
+                          <div class="flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
+                            <select
+                              v-model="ex.type"
+                              @change="handleTypeChange(ex)"
+                              class="w-[140px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                            >
+                              <option value="reps">Reps</option>
+                              <option value="time">Tiempo</option>
+                            </select>
+
+                            <input
+                              v-model="ex.reps"
+                              placeholder="reps"
+                              :disabled="ex.type !== 'reps'"
+                              class="w-[110px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition disabled:opacity-40 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              @input="ex.time = null"
+                            />
+
+                            <input
+                              v-model="ex.time"
+                              placeholder="seg"
+                              :disabled="ex.type !== 'time'"
+                              class="w-[110px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition disabled:opacity-40 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              @input="ex.reps = null"
+                            />
+
+                            <button
+                              type="button"
+                              class="handle inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
+                              aria-label="Mover"
+                            >
+                              ☰
+                            </button>
+
+                            <button
+                              type="button"
+                              @click="removeExercise(block, ex)"
+                              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
+                              aria-label="Eliminar"
+                            >
+                              <TrashIcon class="h-4 w-4 text-red-400" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </draggable>
+
+                  <div v-if="!block.block_exercises?.length" class="mt-3 text-sm text-white/45">
+                    Este bloque no tiene ejercicios aún.
+                  </div>
+                </div>
+              </div>
+            </template>
+          </draggable>
+
+          <div v-if="!workout.blocks?.length" class="mt-4 rounded-lg border border-white/10 bg-white/3 px-5 py-6 text-sm text-white/55">
+            Aún no has creado bloques. Usa “AÑADIR BLOQUE” para empezar.
+          </div>
+        </div>
+
+        <!-- Footer acciones -->
+        <div class="flex flex-col gap-2 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            @click="router.push('/workouts')"
+            class="inline-flex h-10 items-center justify-center rounded-md border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white/75 transition hover:bg-white/8"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            @click="saveWorkout"
+            class="inline-flex h-10 items-center justify-center rounded-md border border-lime-300/20 bg-lime-400 px-5 text-sm font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300"
+          >
+            Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="mt-10 text-sm text-white/55">
+      Cargando...
     </div>
   </div>
-
-  <button @click="saveWorkout" class="bg-green-500 text-black px-4 py-2 rounded mt-4">
-    Guardar cambios
-  </button>
-
 </template>
+
+<style scoped>
+select {
+  color-scheme: dark;
+}
+
+input[type='date'] {
+  color-scheme: dark;
+}
+
+/* Best-effort: many browsers use the OS dropdown UI; this helps where supported. */
+select option,
+select optgroup {
+  background-color: #0b0b0b;
+  color: rgba(255, 255, 255, 0.9);
+}
+</style>

@@ -73,37 +73,104 @@ const save = async () => {
 </script>
 
 <template>
-    <div class="p-6 text-white max-w-xl mx-auto">
-
-        <h1 class="text-2xl mb-4">
-            {{ isEdit ? 'Editar ejercicio' : 'Nuevo ejercicio' }}
+  <div class="px-6 py-8 text-white">
+    <!-- Cabecera -->
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <h1 class="text-4xl font-black tracking-tight">
+          {{ isEdit ? 'Editar ejercicio' : 'Nuevo ejercicio' }}
+          <span class="ml-1 flex flex-col h-[3px] w-10 align-middle bg-lime-400" />
         </h1>
-
-        <p class="mb-1">Nombre del ejercicio</p>
-        <input v-model="form.name" placeholder="Nombre" class="bg-gray-800 p-2 rounded w-full mb-2" />
-
-        <p class="mb-1">Archivo de vídeo o URL</p>
-        <input v-model="form.video_url" placeholder="URL del video" class="bg-gray-800 p-2 rounded w-full mb-2" />
-        <video v-if="form.video_url" :src="form.video_url" controls class="w-full h-48 object-cover rounded mt-2" />
-
-        <div class="mb-4">
-            <p class="mb-1">Categorías</p>
-
-            <label v-for="c in categories" :key="c.id" class="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded">
-                <input type="checkbox" :value="c.id" v-model="form.categories" />
-                {{ c.name }}
-            </label>
-        </div>
-
-        <div class="flex gap-2">
-            <button @click="save" :disabled="loading" class="bg-green-500 px-4 py-2 rounded">
-                {{ loading ? 'Guardando...' : 'Guardar' }}
-            </button>
-
-            <button @click="router.push('/exercises')" class="bg-gray-600 px-4 py-2 rounded">
-                Cancelar
-            </button>
-        </div>
-
+        <p class="mt-2 text-sm text-white/55">
+          {{ isEdit ? 'Actualiza la información del ejercicio.' : 'Crea un nuevo ejercicio y asígnale categorías.' }}
+        </p>
+      </div>
     </div>
+
+    <div class="mt-8 mx-auto w-full max-w-3xl">
+      <div class="rounded-xl border border-white/10 bg-white/4 shadow-[0_20px_50px_-35px_rgba(0,0,0,0.8)]">
+        <div class="px-6 py-6">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div class="space-y-5">
+              <div class="space-y-2">
+                <label class="text-[11px] tracking-[0.22em] uppercase text-white/50">Nombre</label>
+                <input
+                  v-model="form.name"
+                  placeholder="Ej: Press banca"
+                  class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-[11px] tracking-[0.22em] uppercase text-white/50">Vídeo (URL)</label>
+                <input
+                  v-model="form.video_url"
+                  placeholder="https://..."
+                  class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                />
+              </div>
+
+              <div v-if="form.video_url" class="space-y-2">
+                <div class="text-[11px] tracking-[0.22em] uppercase text-white/50">Preview</div>
+                <div class="overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                  <video :src="form.video_url" controls class="w-full h-52 object-cover" />
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex items-end justify-between">
+                <div class="text-[11px] tracking-[0.22em] uppercase text-white/50">Categorías</div>
+                <div class="text-xs text-white/45">
+                  {{ form.categories.length }} seleccionadas
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label
+                  v-for="c in categories"
+                  :key="c.id"
+                  class="flex cursor-pointer items-center gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/80 transition hover:bg-white/8"
+                >
+                  <input
+                    type="checkbox"
+                    :value="c.id"
+                    v-model="form.categories"
+                    class="h-4 w-4 rounded border-white/20 bg-black/30 text-lime-400 focus:ring-lime-400/30"
+                  />
+                  <span class="font-semibold">{{ c.name }}</span>
+                </label>
+
+                <div
+                  v-if="!categories.length"
+                  class="rounded-md border border-white/10 bg-white/3 px-3 py-6 text-sm text-white/55 sm:col-span-2"
+                >
+                  No hay categorías disponibles.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            @click="router.push('/exercises')"
+            class="inline-flex h-10 items-center justify-center rounded-md border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white/75 transition hover:bg-white/8"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            @click="save"
+            :disabled="loading"
+            class="inline-flex h-10 items-center justify-center rounded-md border border-lime-300/20 bg-lime-400 px-5 text-sm font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300 disabled:opacity-50"
+          >
+            {{ loading ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>

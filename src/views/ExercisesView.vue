@@ -8,6 +8,7 @@ const router = useRouter()
 
 const exercises = ref([])
 const categories = ref([])
+const totalExercises = ref(null)
 
 const currentPage = ref(1)
 const lastPage = ref(1)
@@ -28,6 +29,7 @@ const fetchExercises = async (page = 1) => {
   exercises.value = response.data
   currentPage.value = response.current_page
   lastPage.value = response.last_page
+  totalExercises.value = response.total ?? response.meta?.total ?? null
 }
 
 const deleteExercise = async (id) => {
@@ -54,93 +56,180 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 text-white">
-
-    <h1 class="text-2xl mb-4">Ejercicios</h1>
-
-    <div class="bg-gray-900 rounded p-4">
-
-      <div class="flex gap-2 mb-4 items-center">
-
-        <!-- BUSCADOR -->
-        <input v-model="search" placeholder="Buscar ejercicio..." class="bg-gray-800 p-2 rounded flex-1" />
-
-        <!-- CATEGORÍA -->
-        <select v-model="selectedCategory" class="bg-gray-800 p-2 rounded">
-          <option value="">Todas las categorias</option>
-          <option v-for="c in categories" :key="c.id" :value="c.id">
-            {{ c.name }}
-          </option>
-        </select>
-
-        <!-- BOTÓN -->
-        <button @click="router.push('/exercises/create')" class="bg-green-500 px-4 py-2 rounded whitespace-nowrap">
-          Crear ejercicio
-        </button>
-
+  <div class="px-6 py-8 text-white">
+    <!-- Cabecera -->
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <h1 class="text-4xl font-black tracking-tight">
+          Ejercicios
+          <span class="ml-1 flex flex-col h-[3px] w-10 align-middle bg-lime-400" />
+        </h1>
+        <p class="mt-2 text-sm text-white/55">Administración de ejercicios</p>
       </div>
 
-      <table class="w-full text-left">
-        <thead class="bg-gray-800 text-gray-400 text-sm">
-          <tr>
-            <th class="p-2">Nombre</th>
-            <th class="p-2">Video</th>
-            <th class="p-2">Categorías</th>
-            <th></th>
-          </tr>
-        </thead>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <button
+          type="button"
+          @click="router.push('/exercises/create')"
+          class="inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-xs font-extrabold tracking-wide text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-white/8"
+        >
+          <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-lime-300">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </span>
+          NUEVO EJERCICIO
+        </button>
+      </div>
+    </div>
 
-        <tbody>
-          <tr v-for="ex in exercises" :key="ex.id" class="border-t border-gray-700">
+    <!-- Filtros -->
+    <div class="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="relative w-full max-w-xl">
+        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-white/40">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.6" />
+            <path d="M16.5 16.5 21 21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </div>
 
-            <td>{{ ex.name }}</td>
+        <input
+          v-model="search"
+          placeholder="Buscar..."
+          class="w-full rounded-md border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-sm text-white placeholder:text-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+        />
+      </div>
 
-            <td>{{ ex.video_url }}</td>
+      <div class="flex flex-col items-end gap-2">
+        <div class="relative w-full min-w-[220px] sm:w-[240px]">
+          <select
+            v-model="selectedCategory"
+            class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+          >
+            <option value="">Todas las categorías</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">
+              {{ c.name }}
+            </option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+        </div>
 
-            <td>
-              <span v-for="c in ex.categories" :key="c.id" class="mr-2 text-sm text-green-400">
-                {{ c.name }}
-              </span>
-            </td>
+        <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
+          {{ (totalExercises ?? exercises.length) }} ejercicios
+        </div>
+      </div>
+    </div>
 
-            <td class="flex gap-2">
+    <!-- Tabla -->
+    <div class="mt-6 rounded-xl border border-white/10 bg-white/4 shadow-[0_20px_50px_-35px_rgba(0,0,0,0.8)]">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left">
+          <thead class="text-[11px] tracking-[0.22em] uppercase text-white/45">
+            <tr class="border-b border-white/10">
+              <th class="px-6 py-4">Nombre</th>
+              <th class="px-6 py-4">Categorías</th>
+              <th class="px-6 py-4 text-right">Acciones</th>
+            </tr>
+          </thead>
 
-              <button @click="router.push(`/exercises/${ex.id}/edit`)" class="text-blue-400">
-                Editar
-              </button>
+          <tbody class="text-sm">
+            <tr
+              v-for="ex in exercises"
+              :key="ex.id"
+              class="border-b border-white/8 last:border-b-0 hover:bg-white/3"
+            >
+              <td class="px-6 py-5 font-semibold text-white/90">
+                {{ ex.name }}
+              </td>
 
-              <button @click="deleteExercise(ex.id)" class="text-red-400">
-                Eliminar
-              </button>
+              <td class="px-6 py-5">
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="c in ex.categories"
+                    :key="c.id"
+                    class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-extrabold tracking-wide text-white/75"
+                  >
+                    {{ c.name }}
+                  </span>
+                </div>
+              </td>
 
-            </td>
+              <td class="px-6 py-5">
+                <div class="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    @click="router.push(`/exercises/${ex.id}/edit`)"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
+                    aria-label="Editar"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L16.5 4.5a2.1 2.1 0 0 0-3 0L3 15v5Z"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linejoin="round"
+                      />
+                      <path d="M13.5 5.5 18.5 10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                    </svg>
+                  </button>
 
-          </tr>
-        </tbody>
+                  <button
+                    type="button"
+                    @click="deleteExercise(ex.id)"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
+                    aria-label="Eliminar"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M6 7h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                      <path d="M10 7V5h4v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                      <path d="M8 7l1 14h6l1-14" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      </table>
-      <div class="flex justify-center gap-2 mt-4">
-
-        <!-- ANTERIOR -->
-        <button @click="fetchExercises(currentPage - 1)" :disabled="currentPage === 1"
-          class="bg-gray-700 px-3 py-1 rounded disabled:opacity-50">
+      <!-- Paginación -->
+      <div class="flex items-center justify-center gap-3 border-t border-white/10 px-6 py-4 text-sm text-white/70">
+        <button
+          @click="fetchExercises(currentPage - 1)"
+          :disabled="currentPage === 1"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/80 transition disabled:opacity-40 hover:bg-white/8"
+          aria-label="Anterior"
+        >
           ←
         </button>
 
-        <!-- INFO -->
-        <span>
-          Página {{ currentPage }} de {{ lastPage }}
-        </span>
+        <span> Página {{ currentPage }} de {{ lastPage }} </span>
 
-        <!-- SIGUIENTE -->
-        <button @click="fetchExercises(currentPage + 1)" :disabled="currentPage === lastPage"
-          class="bg-gray-700 px-3 py-1 rounded disabled:opacity-50">
+        <button
+          @click="fetchExercises(currentPage + 1)"
+          :disabled="currentPage === lastPage"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/80 transition disabled:opacity-40 hover:bg-white/8"
+          aria-label="Siguiente"
+        >
           →
         </button>
-
       </div>
-
     </div>
   </div>
-
 </template>
+
+<style scoped>
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #0b0b0b;
+  color: rgba(255, 255, 255, 0.9);
+}
+</style>
