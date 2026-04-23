@@ -1,22 +1,33 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { apiFetch } from '../services/api'
+import UiToast from '../components/ui/UiToast.vue'
+import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import { useToast } from '../composables/useToast'
 
 const categories = ref([])
 const newCategory = ref('')
 const editingId = ref(null)
 const editingName = ref('')
+const { toast, showToast, closeToast } = useToast()
+
+const confirmDelete = ref({ open: false, id: null, name: '', loading: false })
 
 const createCategory = async () => {
   if (!newCategory.value.trim()) return
 
-  const cat = await apiFetch('/categories', {
-    method: 'POST',
-    body: { name: newCategory.value }
-  })
+  try {
+    const cat = await apiFetch('/categories', {
+      method: 'POST',
+      body: { name: newCategory.value }
+    })
 
-  categories.value.push(cat)
-  newCategory.value = ''
+    categories.value.push(cat)
+    newCategory.value = ''
+    showToast('success', 'Guardado', 'Categoría creada con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudo crear la categoría.')
+  }
 }
 
 const startEdit = (cat) => {
@@ -25,22 +36,37 @@ const startEdit = (cat) => {
 }
 
 const updateCategory = async (cat) => {
-  const updated = await apiFetch(`/categories/${cat.id}`, {
-    method: 'PUT',
-    body: { name: editingName.value }
-  })
+  try {
+    const updated = await apiFetch(`/categories/${cat.id}`, {
+      method: 'PUT',
+      body: { name: editingName.value }
+    })
 
-  cat.name = updated.name
-  editingId.value = null
+    cat.name = updated.name
+    editingId.value = null
+    showToast('success', 'Actualizado', 'Categoría actualizada con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudo actualizar la categoría.')
+  }
 }
 
-const deleteCategory = async (id) => {
-  const ok = confirm('¿Eliminar categoría?')
-  if (!ok) return
+const requestDeleteCategory = (cat) => {
+  confirmDelete.value = { open: true, id: cat.id, name: cat?.name || '', loading: false }
+}
 
-  await apiFetch(`/categories/${id}`, { method: 'DELETE' })
-
-  categories.value = categories.value.filter(c => c.id !== id)
+const performDeleteCategory = async () => {
+  if (!confirmDelete.value.id) return
+  confirmDelete.value.loading = true
+  try {
+    await apiFetch(`/categories/${confirmDelete.value.id}`, { method: 'DELETE' })
+    categories.value = categories.value.filter(c => c.id !== confirmDelete.value.id)
+    confirmDelete.value.open = false
+    showToast('success', 'Eliminado', 'Categoría borrada con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudo borrar la categoría.')
+  } finally {
+    confirmDelete.value.loading = false
+  }
 }
 
 onMounted(async () => {
@@ -50,6 +76,26 @@ onMounted(async () => {
 
 <template>
   <div class="px-6 py-8 text-white">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
+    <UiConfirmModal
+      :open="confirmDelete.open"
+      title="Eliminar categoría"
+      :message="`Vas a eliminar ${confirmDelete.name || 'esta categoría'}. Esta acción no se puede deshacer.`"
+      confirm-text="Eliminar"
+      cancel-text="Cancelar"
+      :loading="confirmDelete.loading"
+      tone="danger"
+      @confirm="performDeleteCategory"
+      @cancel="confirmDelete.open = false"
+    />
+
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>
@@ -147,7 +193,7 @@ onMounted(async () => {
 
                     <button
                       type="button"
-                      @click="deleteCategory(cat.id)"
+                      @click="requestDeleteCategory(cat)"
                       class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
                       aria-label="Eliminar"
                     >

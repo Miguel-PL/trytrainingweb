@@ -1,9 +1,16 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { apiFetch } from '../services/api'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import UiToast from '../components/ui/UiToast.vue'
+import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import { useToast } from '../composables/useToast'
 
 const router = useRouter()
+const route = useRoute()
+const { toast, showToast, closeToast } = useToast()
+
+const confirmDelete = ref({ open: false, id: null, name: '', loading: false })
 
 const workouts = ref([])
 const search = ref('')
@@ -33,17 +40,59 @@ watch(search, () => {
 })
 
 const deleteWorkout = async (id) => {
-  const ok = confirm('¿Seguro que quieres borrar esta sesión?')
-  if (!ok) return
-
-  await apiFetch(`/workouts/${id}`, { method: 'DELETE' })
-
-  fetchWorkouts(currentPage.value)
+  confirmDelete.value = {
+    open: true,
+    id,
+    name: workouts.value?.find(w => w.id === id)?.name || '',
+    loading: false,
+  }
 }
+
+const performDeleteWorkout = async () => {
+  if (!confirmDelete.value.id) return
+  confirmDelete.value.loading = true
+  try {
+    await apiFetch(`/workouts/${confirmDelete.value.id}`, { method: 'DELETE' })
+    confirmDelete.value.open = false
+    showToast('success', 'Eliminado', 'Sesión borrada con éxito.')
+    fetchWorkouts(currentPage.value)
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudo borrar la sesión.')
+  } finally {
+    confirmDelete.value.loading = false
+  }
+}
+
+onMounted(() => {
+  const t = String(route.query?.toast || '')
+  if (t === 'saved') showToast('success', 'Guardado', 'Sesión guardada con éxito.')
+  if (t === 'updated') showToast('success', 'Actualizado', 'Sesión actualizada con éxito.')
+  if (t === 'deleted') showToast('success', 'Eliminado', 'Sesión borrada con éxito.')
+})
 </script>
 
 <template>
   <div class="px-6 py-8 text-white">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
+    <UiConfirmModal
+      :open="confirmDelete.open"
+      title="Eliminar sesión"
+      :message="`Vas a eliminar ${confirmDelete.name || 'esta sesión'}. Esta acción no se puede deshacer.`"
+      confirm-text="Eliminar"
+      cancel-text="Cancelar"
+      :loading="confirmDelete.loading"
+      tone="danger"
+      @confirm="performDeleteWorkout"
+      @cancel="confirmDelete.open = false"
+    />
+
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>

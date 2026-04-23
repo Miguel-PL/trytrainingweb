@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { apiFetch } from '../services/api'
 
 const route = useRoute()
 const workout = ref(null)
@@ -19,11 +20,7 @@ const formatType = (ex) => {
 }
 
 onMounted(async () => {
-  const response = await fetch(
-    `http://127.0.0.1:8000/api/workouts/${route.params.id}/display`
-  )
-
-  workout.value = await response.json()
+  workout.value = await apiFetch(`/workouts/${route.params.id}/display`)
 })
 </script>
 

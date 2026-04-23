@@ -2,10 +2,13 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiFetch } from '../services/api'
+import UiToast from '../components/ui/UiToast.vue'
+import { useToast } from '../composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
+const { toast, showToast, closeToast } = useToast()
 
 const isEdit = !!route.params.id
 
@@ -39,13 +42,13 @@ const save = async () => {
 
         if (!form.value.name.trim()) {
             loading.value = false
-            alert('El nombre es obligatorio')
+            showToast('error', 'Faltan datos', 'El nombre es obligatorio.')
             return
         }
 
         if (!form.value.video_url.trim()) {
             loading.value = false
-            alert('La URL del vídeo es obligatoria')
+            showToast('error', 'Faltan datos', 'La URL del vídeo es obligatoria.')
             return
         }
 
@@ -61,11 +64,14 @@ const save = async () => {
             })
         }
 
-        router.push('/exercises')
+        router.push({
+          path: '/exercises',
+          query: { toast: isEdit ? 'updated' : 'saved' },
+        })
 
     } catch (error) {
         console.error(error)
-        alert('Error al guardar')
+        showToast('error', 'Error', error?.message || 'Error al guardar.')
     } finally {
         loading.value = false
     }
@@ -74,6 +80,14 @@ const save = async () => {
 
 <template>
   <div class="px-6 py-8 text-white">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>

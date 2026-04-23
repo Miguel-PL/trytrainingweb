@@ -1,14 +1,27 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { apiFetch } from '../services/api'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { watch } from 'vue'
+import UiToast from '../components/ui/UiToast.vue'
+import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import { useToast } from '../composables/useToast'
 
 const router = useRouter()
+const route = useRoute()
 
 const exercises = ref([])
 const categories = ref([])
 const totalExercises = ref(null)
+
+const { toast, showToast, closeToast } = useToast()
+
+const confirmDelete = ref({
+  open: false,
+  id: null,
+  name: '',
+  loading: false,
+})
 
 const currentPage = ref(1)
 const lastPage = ref(1)
@@ -20,7 +33,7 @@ const fetchExercises = async (page = 1) => {
     url += `&name=${search.value}`
   }
 
-  if (selectedCategory.value) {
+  if (selectedCategory.value && selectedCategory.value !== '__none__') {
     url += `&category_id=${selectedCategory.value}`
   }
 
@@ -32,17 +45,58 @@ const fetchExercises = async (page = 1) => {
   totalExercises.value = response.total ?? response.meta?.total ?? null
 }
 
-const deleteExercise = async (id) => {
-  const ok = confirm('¿Eliminar ejercicio?')
-  if (!ok) return
+const requestDeleteExercise = (ex) => {
+  confirmDelete.value = {
+    open: true,
+    id: ex.id,
+    name: ex?.name || '',
+    loading: false,
+  }
+}
 
-  await apiFetch(`/exercises/${id}`, { method: 'DELETE' })
-
-  exercises.value = exercises.value.filter(e => e.id !== id)
+const performDeleteExercise = async () => {
+  if (!confirmDelete.value.id) return
+  confirmDelete.value.loading = true
+  try {
+    await apiFetch(`/exercises/${confirmDelete.value.id}`, { method: 'DELETE' })
+    exercises.value = (exercises.value || []).filter(e => e.id !== confirmDelete.value.id)
+    confirmDelete.value.open = false
+    showToast('success', 'Eliminado', 'Ejercicio borrado con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudo borrar el ejercicio.')
+  } finally {
+    confirmDelete.value.loading = false
+  }
 }
 
 const search = ref('')
 const selectedCategory = ref('')
+
+const filteredExercises = computed(() => {
+  const selected = selectedCategory.value
+
+  if (!selected) return exercises.value || []
+
+  // Special value to filter exercises with no categories assigned
+  if (selected === '__none__') {
+    return (exercises.value || []).filter(ex => !(ex?.categories?.length > 0))
+  }
+
+  return (exercises.value || []).filter(ex =>
+    (ex?.categories || []).some(c => String(c.id) === String(selected))
+  )
+})
+
+const sortedExercises = computed(() => {
+  return [...filteredExercises.value].sort((a, b) =>
+    (a?.name || '').localeCompare((b?.name || ''), 'es', { sensitivity: 'base' })
+  )
+})
+
+const displayedTotal = computed(() => {
+  if (selectedCategory.value === '__none__') return filteredExercises.value.length
+  return totalExercises.value ?? exercises.value.length
+})
 
 watch([search, selectedCategory], () => {
   fetchExercises(1)
@@ -51,12 +105,37 @@ watch([search, selectedCategory], () => {
 onMounted(async () => {
   await fetchExercises()
   categories.value = await apiFetch('/categories')
+
+  const t = String(route.query?.toast || '')
+  if (t === 'saved') showToast('success', 'Guardado', 'Ejercicio guardado con éxito.')
+  if (t === 'updated') showToast('success', 'Actualizado', 'Ejercicio actualizado con éxito.')
+  if (t === 'deleted') showToast('success', 'Eliminado', 'Ejercicio borrado con éxito.')
 })
 
 </script>
 
 <template>
   <div class="px-6 py-8 text-white">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
+    <UiConfirmModal
+      :open="confirmDelete.open"
+      title="Eliminar ejercicio"
+      :message="`Vas a eliminar ${confirmDelete.name || 'este ejercicio'}. Esta acción no se puede deshacer.`"
+      confirm-text="Eliminar"
+      cancel-text="Cancelar"
+      :loading="confirmDelete.loading"
+      tone="danger"
+      @confirm="performDeleteExercise"
+      @cancel="confirmDelete.open = false"
+    />
+
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>
@@ -107,6 +186,7 @@ onMounted(async () => {
             class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
           >
             <option value="">Todas las categorías</option>
+            <option value="__none__">Sin categorías</option>
             <option v-for="c in categories" :key="c.id" :value="c.id">
               {{ c.name }}
             </option>
@@ -119,7 +199,7 @@ onMounted(async () => {
         </div>
 
         <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
-          {{ (totalExercises ?? exercises.length) }} ejercicios
+          {{ displayedTotal }} ejercicios
         </div>
       </div>
     </div>
@@ -138,7 +218,7 @@ onMounted(async () => {
 
           <tbody class="text-sm">
             <tr
-              v-for="ex in exercises"
+              v-for="ex in sortedExercises"
               :key="ex.id"
               class="border-b border-white/8 last:border-b-0 hover:bg-white/3"
             >
@@ -149,9 +229,12 @@ onMounted(async () => {
               <td class="px-6 py-5">
                 <div class="flex flex-wrap gap-2">
                   <span
-                    v-for="c in ex.categories"
+                    v-for="(c, idx) in (ex.categories || [])"
                     :key="c.id"
-                    class="inline-flex items-center rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-extrabold tracking-wide text-white/75"
+                    class="inline-flex items-center rounded border px-2 py-1 text-[10px] font-extrabold tracking-wide"
+                    :class="idx % 2 === 0
+                      ? 'border-white/10 bg-white/5 text-white/80'
+                      : 'border-lime-300/25 bg-lime-400/15 text-lime-200'"
                   >
                     {{ c.name }}
                   </span>
@@ -179,7 +262,7 @@ onMounted(async () => {
 
                   <button
                     type="button"
-                    @click="deleteExercise(ex.id)"
+                    @click="requestDeleteExercise(ex)"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
                     aria-label="Eliminar"
                   >

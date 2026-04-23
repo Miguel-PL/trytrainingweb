@@ -1,48 +1,52 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { apiFetch } from '../services/api'
+import UiToast from '../components/ui/UiToast.vue'
+import { useToast } from '../composables/useToast'
 
 const email = ref('')
 const password = ref('')
 const router = useRouter()
+const { toast, showToast, closeToast } = useToast()
 
 const login = async () => {
   console.log('LOGIN CLICK')
 
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/login', {
+    const data = await apiFetch('/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
+      body: {
         email: email.value,
-        password: password.value
-      })
+        password: password.value,
+      },
     })
-
-    const data = await response.json()
 
     console.log('RESPONSE:', data)
 
-    if (!response.ok) {
-      alert('Error de login')
-      return
-    }
-
-    localStorage.setItem('token', data.token)
+    const token = data?.token || data?.access_token
+    if (!token) throw new Error('Login OK pero falta token en la respuesta')
+    localStorage.setItem('token', token)
 
     router.push('/workouts')
 
   } catch (error) {
     console.error('ERROR FETCH:', error)
+    showToast('error', 'Error de login', error?.message || 'No se pudo iniciar sesión.')
   }
 }
 </script>
 
 <template>
   <div class="relative min-h-screen bg-black text-white overflow-hidden">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
     <!-- Fondo (vignette + grano sutil) -->
     <div
       class="pointer-events-none absolute inset-0 opacity-80"

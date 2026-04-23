@@ -4,9 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiFetch } from '../services/api'
 import { TrashIcon } from '@heroicons/vue/24/outline'
 import draggable from 'vuedraggable'
+import UiToast from '../components/ui/UiToast.vue'
+import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import { useToast } from '../composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
+const { toast, showToast, closeToast } = useToast()
+const confirmRemove = ref({ open: false, blockName: '', exName: '', onConfirm: null })
 
 const workout = ref(null)
 const exercises = ref([])
@@ -47,7 +52,10 @@ const saveWorkout = async () => {
     })
   }
 
-  router.push('/workouts')
+  router.push({
+    path: '/workouts',
+    query: { toast: isEdit ? 'updated' : 'saved' },
+  })
 }
 
 // BLOQUES
@@ -87,17 +95,36 @@ const addExercise = (block) => {
 }
 
 const removeExercise = (block, exerciseToRemove) => {
-  const ok = confirm('¿Eliminar ejercicio?')
-  if (!ok) return
-
-  block.block_exercises = block.block_exercises.filter(
-    ex => ex !== exerciseToRemove
-  )
+  confirmRemove.value = {
+    open: true,
+    blockName: block?.name || '',
+    exName: exerciseToRemove?.exercise?.name || '',
+    onConfirm: () => {
+      block.block_exercises = block.block_exercises.filter(ex => ex !== exerciseToRemove)
+      confirmRemove.value.open = false
+      showToast('success', 'Eliminado', 'Ejercicio quitado del bloque.')
+    },
+  }
 }
 
 const handleTypeChange = (ex) => {
   if (ex.type === 'reps') ex.time = null
   else ex.reps = null
+}
+
+const getValue = (ex) => {
+  return ex?.type === 'time' ? (ex.time ?? '') : (ex.reps ?? '')
+}
+
+const setValue = (ex, value) => {
+  const v = value === '' || value === null || value === undefined ? null : Number(value)
+  if (ex?.type === 'time') {
+    ex.time = Number.isFinite(v) ? v : null
+    ex.reps = null
+  } else {
+    ex.reps = Number.isFinite(v) ? v : null
+    ex.time = null
+  }
 }
 
 const updateOrder = (block) => {
@@ -164,6 +191,25 @@ onMounted(async () => {
 
 <template>
   <div class="px-6 py-8 text-white">
+    <UiToast
+      :open="toast.open"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="closeToast"
+    />
+
+    <UiConfirmModal
+      :open="confirmRemove.open"
+      title="Quitar ejercicio"
+      :message="`Vas a quitar ${confirmRemove.exName || 'este ejercicio'}${confirmRemove.blockName ? ` del bloque ${confirmRemove.blockName}` : ''}.`"
+      confirm-text="Quitar"
+      cancel-text="Cancelar"
+      tone="danger"
+      @confirm="confirmRemove.onConfirm && confirmRemove.onConfirm()"
+      @cancel="confirmRemove.open = false"
+    />
+
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
       <div>
@@ -281,10 +327,10 @@ onMounted(async () => {
                   >
                     <template #item="{ element: ex }">
                       <div class="rounded-lg border border-white/10 bg-white/3 px-4 py-4">
-                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+                        <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-stretch">
                           <!-- Selección -->
-                          <div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start">
-                            <div class="relative w-full flex-1">
+                          <div class="lg:col-span-7 flex flex-col gap-3">
+                            <div class="relative w-full">
                               <input
                                 v-model="ex.search"
                                 placeholder="Buscar ejercicio..."
@@ -306,83 +352,99 @@ onMounted(async () => {
                                 </button>
                               </div>
 
-                              <div class="mt-2 min-h-[28px]">
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
+                              <div class="relative w-full">
+                                <select
+                                  v-model="ex.selectedCategory"
+                                  class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 pr-10 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                                >
+                                  <option value="" placeholder="Buscar ejercicio...">Todas las categorías</option>
+                                  <option v-for="c in categories" :key="c.id" :value="c.id">
+                                    {{ c.name }}
+                                  </option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                  </svg>
+                                </div>
+                              </div>
+
+                              <div class="mt-0.5 min-h-[42px] sm:col-span-2">
                                 <div
                                   v-if="ex.exercise?.name"
-                                  class="inline-flex items-center gap-2 rounded-md border border-lime-300/20 bg-lime-400/15 px-3 py-2 text-xs font-semibold text-lime-200"
+                                  class="flex items-center justify-between gap-3 rounded-md border border-lime-300/20 bg-lime-400/15 px-3 py-2"
                                 >
-                                  {{ ex.exercise.name }}
+                                  <div class="min-w-0">
+                                    <div class="truncate text-sm font-extrabold tracking-wide text-lime-100">
+                                      {{ ex.exercise.name }}
+                                    </div>
+                                  </div>
                                   <button
                                     type="button"
                                     @click="ex.exercise = null; ex.exercise_id = null"
-                                    class="rounded px-1 text-lime-200/80 hover:text-lime-200"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-lime-300/15 bg-black/10 text-lime-100/80 hover:text-lime-100"
                                     aria-label="Quitar"
                                   >
                                     ✕
                                   </button>
                                 </div>
-                                <div v-else class="text-xs text-white/40">
+                                <div v-else class="pt-1 text-xs text-white/40">
                                   Selecciona un ejercicio.
                                 </div>
                               </div>
                             </div>
-
-                            <div class="w-full sm:w-[220px]">
-                              <select
-                                v-model="ex.selectedCategory"
-                                class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
-                              >
-                                <option value="">Todas</option>
-                                <option v-for="c in categories" :key="c.id" :value="c.id">
-                                  {{ c.name }}
-                                </option>
-                              </select>
-                            </div>
                           </div>
 
                           <!-- Config -->
-                          <div class="flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
-                            <select
-                              v-model="ex.type"
-                              @change="handleTypeChange(ex)"
-                              class="w-[140px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
-                            >
-                              <option value="reps">Reps</option>
-                              <option value="time">Tiempo</option>
-                            </select>
+                          <div class="lg:col-span-5 flex h-full flex-col justify-between gap-3 rounded-md border border-white/10 bg-black/20 p-3">
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <div class="space-y-2">
+                                <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">Modo</div>
+                                <select
+                                  v-model="ex.type"
+                                  @change="handleTypeChange(ex)"
+                                  class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                                >
+                                  <option value="reps">Repeticiones</option>
+                                  <option value="time">Tiempo</option>
+                                </select>
+                              </div>
 
-                            <input
-                              v-model="ex.reps"
-                              placeholder="reps"
-                              :disabled="ex.type !== 'reps'"
-                              class="w-[110px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition disabled:opacity-40 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
-                              @input="ex.time = null"
-                            />
+                              <div class="space-y-2">
+                                <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
+                                  {{ ex.type === 'time' ? 'Segundos' : 'Reps' }}
+                                </div>
+                                <input
+                                  :value="getValue(ex)"
+                                  @input="setValue(ex, $event.target.value)"
+                                  :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
+                                  inputmode="numeric"
+                                  class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                                />
+                              </div>
+                            </div>
 
-                            <input
-                              v-model="ex.time"
-                              placeholder="seg"
-                              :disabled="ex.type !== 'time'"
-                              class="w-[110px] rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition disabled:opacity-40 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
-                              @input="ex.reps = null"
-                            />
+                            <div class="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                class="handle inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
+                                aria-label="Mover"
+                              >
+                                ☰
+                              </button>
 
-                            <button
-                              type="button"
-                              class="handle inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
-                              aria-label="Mover"
-                            >
-                              ☰
-                            </button>
-
-                            <button
-                              type="button"
-                              @click="removeExercise(block, ex)"
-                              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
-                              aria-label="Eliminar"
-                            >
-                              <TrashIcon class="h-4 w-4 text-red-400" />
-                            </button>
+                              <button
+                                type="button"
+                                @click="removeExercise(block, ex)"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-400/20 bg-red-500/10 text-red-200 transition hover:bg-red-500/15"
+                                aria-label="Eliminar"
+                              >
+                                <TrashIcon class="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>

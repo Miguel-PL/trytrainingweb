@@ -1,20 +1,61 @@
 <script setup>
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
+const sidebarOpen = ref(false)
 
 const logout = () => {
   localStorage.removeItem('token')
   router.push('/')
 }
+
+watch(
+  () => route.fullPath,
+  () => {
+    sidebarOpen.value = false
+  }
+)
 </script>
 
 <template>
-  <div class="min-h-screen bg-black text-white">
+  <div class="min-h-screen bg-black text-white" :class="sidebarOpen ? 'overflow-hidden' : ''">
     <div class="flex min-h-screen">
       <!-- Sidebar -->
-      <aside class="w-[280px] border-r border-white/10 bg-black/60 backdrop-blur">
+      <!-- Mobile overlay -->
+      <div
+        v-if="sidebarOpen"
+        class="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+        @click="sidebarOpen = false"
+      />
+
+      <aside
+        class="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-white/10 bg-black/80 backdrop-blur transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:bg-black/60"
+        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+      >
         <div class="flex h-full flex-col px-5 py-6">
+          <!-- Mobile header inside drawer -->
+          <div class="mb-6 flex items-start justify-between lg:hidden">
+            <div>
+              <div class="text-sm font-black tracking-[0.2em] text-lime-300">
+                TRY TRAINING
+              </div>
+              <div class="mt-1 text-[10px] tracking-[0.28em] uppercase text-white/40">
+                Elite management
+              </div>
+            </div>
+            <button
+              type="button"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/70 hover:bg-white/8"
+              aria-label="Cerrar menú"
+              @click="sidebarOpen = false"
+            >
+              ✕
+            </button>
+          </div>
+
           <div class="mb-6">
             <div class="text-sm font-black tracking-[0.2em] text-lime-300">
               TRY TRAINING
@@ -92,6 +133,22 @@ const logout = () => {
 
       <!-- Contenido -->
       <main class="min-w-0 flex-1">
+        <!-- Mobile topbar -->
+        <div class="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur lg:hidden">
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/70 hover:bg-white/8"
+            aria-label="Abrir menú"
+            @click="sidebarOpen = true"
+          >
+            ☰
+          </button>
+          <div class="min-w-0">
+            <div class="truncate text-xs font-extrabold tracking-[0.18em] text-white/80">
+              TRY TRAINING
+            </div>
+          </div>
+        </div>
         <router-view />
       </main>
     </div>
