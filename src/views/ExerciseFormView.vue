@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiFetch } from '../services/api'
 import UiToast from '../components/ui/UiToast.vue'
 import { useToast } from '../composables/useToast'
+import { buildYouTubeEmbedUrl, validateExerciseMediaUrl } from '../utils/videoUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +51,13 @@ const save = async () => {
             loading.value = false
             showToast('error', 'Faltan datos', 'La URL del vídeo es obligatoria.')
             return
+        }
+
+        const validation = validateExerciseMediaUrl(form.value.video_url)
+        if (!validation.ok) {
+          loading.value = false
+          showToast('error', 'URL de vídeo inválida', validation.reason)
+          return
         }
 
         if (isEdit) {
@@ -122,12 +130,24 @@ const save = async () => {
                   placeholder="https://..."
                   class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
                 />
+                <div class="text-xs text-white/45">
+                  Acepta <span class="font-semibold text-white/70">YouTube</span> (watch/shorts/youtu.be) o un enlace directo a <span class="font-semibold text-white/70">.mp4</span>/<span class="font-semibold text-white/70">.webm</span>/<span class="font-semibold text-white/70">.ogg</span>.
+                  En TV debe ser accesible sin login.
+                </div>
               </div>
 
               <div v-if="form.video_url" class="space-y-2">
                 <div class="text-[11px] tracking-[0.22em] uppercase text-white/50">Preview</div>
                 <div class="overflow-hidden rounded-lg border border-white/10 bg-black/40">
-                  <video :src="form.video_url" controls class="w-full h-52 object-cover" />
+                  <iframe
+                    v-if="buildYouTubeEmbedUrl(form.video_url)"
+                    :src="buildYouTubeEmbedUrl(form.video_url)"
+                    class="w-full h-52"
+                    frameborder="0"
+                    allow="autoplay; encrypted-media; picture-in-picture"
+                    allowfullscreen
+                  />
+                  <video v-else :src="form.video_url" controls class="w-full h-52 object-cover" />
                 </div>
               </div>
             </div>

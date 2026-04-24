@@ -182,11 +182,12 @@ onMounted(() => {
                     </svg>
                   </button>
 
-                  <button
-                    type="button"
-                    @click="router.push(`/display/${w.id}`)"
+                  <router-link
+                    :to="`/display/${w.id}`"
+                    target="_blank"
+                    rel="noopener"
                     class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8"
-                    aria-label="TV"
+                    aria-label="TV (abrir en nueva pestaña)"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <path
@@ -198,7 +199,7 @@ onMounted(() => {
                       <path d="M9 21h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                       <path d="M12 17v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
                     </svg>
-                  </button>
+                  </router-link>
 
                   <button
                     type="button"

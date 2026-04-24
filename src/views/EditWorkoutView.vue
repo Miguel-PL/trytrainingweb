@@ -87,10 +87,11 @@ const addExercise = (block) => {
     type: 'reps',
     reps: null,
     time: null,
-    intensity: '5/10',
+    intensity: 5,
     order: block.block_exercises.length + 1,
     search: '',
-    selectedCategory: ''
+    selectedCategory: 'all',
+    dropdownOpen: false,
   })
 }
 
@@ -127,6 +128,37 @@ const setValue = (ex, value) => {
   }
 }
 
+const parseIntensityTo10 = (raw) => {
+  const s = String(raw ?? '').trim()
+  if (!s) return 5
+
+  const frac = s.match(/^(\d+)\s*\/\s*(\d+)$/)
+  if (frac) {
+    const v = Number(frac[1])
+    const m = Number(frac[2])
+    if (Number.isFinite(v) && Number.isFinite(m) && m > 0) {
+      const n = Math.round((v / m) * 10)
+      return Math.max(1, Math.min(10, n))
+    }
+  }
+
+  const percent = s.match(/^(\d{1,3})\s*%$/)
+  if (percent) {
+    const p = Math.max(0, Math.min(100, Number(percent[1])))
+    const n = Math.round((p / 100) * 10)
+    return Math.max(1, Math.min(10, n))
+  }
+
+  const n = Number(s)
+  if (!Number.isFinite(n)) return 5
+  return Math.max(1, Math.min(10, Math.round(n)))
+}
+
+const setIntensity = (ex, value) => {
+  const n = Number(value)
+  ex.intensity = Number.isFinite(n) ? Math.max(1, Math.min(10, Math.round(n))) : 5
+}
+
 const updateOrder = (block) => {
   block.block_exercises.forEach((ex, index) => {
     ex.order = index + 1
@@ -147,9 +179,13 @@ const getFilteredExercises = (ex) => {
         .toLowerCase()
         .includes((ex.search || '').toLowerCase())
 
-      const matchCategory = ex.selectedCategory
-        ? (e.categories || []).some(c => c.id == ex.selectedCategory)
-        : true
+      const selected = ex.selectedCategory
+      const matchCategory =
+        selected === 'none'
+          ? !((e.categories || []).length > 0)
+          : (selected && selected !== 'all')
+            ? (e.categories || []).some(c => c.id == selected)
+            : true
 
       return matchName && matchCategory
     })
@@ -159,13 +195,26 @@ const getFilteredExercises = (ex) => {
 
 const handleSelectExercise = (ex) => {
   ex.search = ''
-  ex.selectedCategory = ''
+  ex.selectedCategory = 'all'
+  ex.dropdownOpen = false
 }
 
 const selectExercise = (ex, e) => {
   ex.exercise_id = e.id
   ex.exercise = e
   ex.search = ''
+  ex.dropdownOpen = false
+}
+
+const openDropdown = (ex) => {
+  ex.dropdownOpen = true
+}
+
+const closeDropdown = (ex) => {
+  // Delay so option click can run before blur closes it
+  setTimeout(() => {
+    ex.dropdownOpen = false
+  }, 120)
 }
 
 onMounted(async () => {
@@ -177,6 +226,17 @@ onMounted(async () => {
       name: '',
       date: '',
       blocks: []
+    }
+  }
+
+  // Normalize UI-only fields so selects always show a value
+  for (const b of (workout.value?.blocks || [])) {
+    for (const ex of (b.block_exercises || [])) {
+      if (!ex.type) ex.type = 'reps'
+      if (ex.selectedCategory == null || ex.selectedCategory === '') ex.selectedCategory = 'all'
+      if (ex.search == null) ex.search = ''
+      if (ex.dropdownOpen == null) ex.dropdownOpen = false
+      ex.intensity = parseIntensityTo10(ex.intensity)
     }
   }
 
@@ -223,7 +283,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="workout" class="mt-8 mx-auto w-full max-w-5xl">
+    <div v-if="workout" class="mt-8 mx-auto w-full max-w-6xl xl:max-w-7xl">
       <!-- Datos sesión -->
       <div class="rounded-xl border border-white/10 bg-white/4 shadow-[0_20px_50px_-35px_rgba(0,0,0,0.8)]">
         <div class="border-b border-white/10 px-6 py-5">
@@ -289,7 +349,18 @@ onMounted(async () => {
                       class="handle inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
                       aria-label="Mover bloque"
                     >
-                      ☰
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="opacity-85">
+                        <path d="M12 2v20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                        <path d="M2 12h20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                        <path d="M12 2l-3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M12 2l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M12 22l-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M12 22l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 12l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 12l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M22 12l-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M22 12l-3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
                     </button>
 
                     <input
@@ -326,44 +397,88 @@ onMounted(async () => {
                     handle=".handle"
                   >
                     <template #item="{ element: ex }">
-                      <div class="rounded-lg border border-white/10 bg-white/3 px-4 py-4">
-                        <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-stretch">
-                          <!-- Selección -->
-                          <div class="lg:col-span-7 flex flex-col gap-3">
-                            <div class="relative w-full">
-                              <input
-                                v-model="ex.search"
-                                placeholder="Buscar ejercicio..."
-                                class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
-                              />
-
-                              <div
-                                v-if="ex.search && getFilteredExercises(ex).length"
-                                class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
-                              >
-                                <button
-                                  v-for="e in getFilteredExercises(ex)"
-                                  :key="e.id"
-                                  type="button"
-                                  @click="selectExercise(ex, e)"
-                                  class="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white/80 hover:bg-white/5"
-                                >
-                                  <span class="font-semibold">{{ e.name }}</span>
-                                </button>
+                      <div class="rounded-lg border border-white/10 bg-white/3 px-3 py-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <!-- Nombre seleccionado -->
+                          <div class="w-full sm:w-[260px] sm:flex-none">
+                            <div
+                              v-if="ex.exercise?.name"
+                              class="flex h-10 items-center justify-between gap-2 rounded-md border border-lime-300/20 bg-lime-400/15 px-3"
+                            >
+                              <div class="truncate text-sm font-extrabold tracking-wide text-lime-100">
+                                {{ ex.exercise.name }}
                               </div>
-
+                              <button
+                                type="button"
+                                @click="ex.exercise = null; ex.exercise_id = null"
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-lime-300/15 bg-black/10 text-lime-100/80 hover:text-lime-100"
+                                aria-label="Quitar"
+                              >
+                                ✕
+                              </button>
                             </div>
+                            <div v-else class="flex h-10 items-center rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/45">
+                              Sin ejercicio
+                            </div>
+                          </div>
 
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
-                              <div class="relative w-full">
+                          <!-- Filtro -->
+                          <div class="relative w-full sm:flex-1 sm:min-w-[240px] lg:min-w-[360px]">
+                            <input
+                              v-model="ex.search"
+                              placeholder="Buscar ejercicio..."
+                              class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              @focus="openDropdown(ex)"
+                              @blur="closeDropdown(ex)"
+                            />
+
+                            <div
+                              v-if="(ex.dropdownOpen || ex.search) && getFilteredExercises(ex).length"
+                              class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
+                            >
+                              <button
+                                v-for="e in getFilteredExercises(ex)"
+                                :key="e.id"
+                                type="button"
+                                @click="selectExercise(ex, e)"
+                                @mousedown.prevent
+                                class="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white/80 hover:bg-white/5"
+                              >
+                                <span class="font-semibold">{{ e.name }}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Select categoría -->
+                          <div class="relative w-full sm:w-[240px] sm:flex-none">
+                            <select
+                              v-model="ex.selectedCategory"
+                              class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-2.5 pr-10 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                            >
+                              <option value="all">Todas las categorías</option>
+                              <option value="none">Sin categoría</option>
+                              <option v-for="c in categories" :key="c.id" :value="c.id">
+                                {{ c.name }}
+                              </option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          <!-- Config compacta -->
+                          <div class="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end">
+                            <div class="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                              <div class="relative min-w-0 flex-1 sm:flex-none">
                                 <select
-                                  v-model="ex.selectedCategory"
-                                  class="w-full appearance-none rounded-md border border-white/10 bg-white/5 px-4 py-3 pr-10 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                                  v-model="ex.type"
+                                  @change="handleTypeChange(ex)"
+                                  class="h-10 w-full appearance-none rounded-md border border-white/10 bg-white/5 px-3 pr-10 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark sm:w-[170px]"
                                 >
-                                  <option value="" placeholder="Buscar ejercicio...">Todas las categorías</option>
-                                  <option v-for="c in categories" :key="c.id" :value="c.id">
-                                    {{ c.name }}
-                                  </option>
+                                  <option value="reps">Repeticiones</option>
+                                  <option value="time">Tiempo</option>
                                 </select>
                                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
                                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -372,68 +487,50 @@ onMounted(async () => {
                                 </div>
                               </div>
 
-                              <div class="mt-0.5 min-h-[42px] sm:col-span-2">
-                                <div
-                                  v-if="ex.exercise?.name"
-                                  class="flex items-center justify-between gap-3 rounded-md border border-lime-300/20 bg-lime-400/15 px-3 py-2"
-                                >
-                                  <div class="min-w-0">
-                                    <div class="truncate text-sm font-extrabold tracking-wide text-lime-100">
-                                      {{ ex.exercise.name }}
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    @click="ex.exercise = null; ex.exercise_id = null"
-                                    class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-lime-300/15 bg-black/10 text-lime-100/80 hover:text-lime-100"
-                                    aria-label="Quitar"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                                <div v-else class="pt-1 text-xs text-white/40">
-                                  Selecciona un ejercicio.
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                              <input
+                                :value="getValue(ex)"
+                                @input="setValue(ex, $event.target.value)"
+                                :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
+                                inputmode="numeric"
+                                class="h-10 w-[86px] shrink-0 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              />
 
-                          <!-- Config -->
-                          <div class="lg:col-span-5 flex h-full flex-col justify-between gap-3 rounded-md border border-white/10 bg-black/20 p-3">
-                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                              <div class="space-y-2">
-                                <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">Modo</div>
+                              <div class="relative w-full sm:w-auto sm:shrink-0">
                                 <select
-                                  v-model="ex.type"
-                                  @change="handleTypeChange(ex)"
-                                  class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark"
+                                  :value="ex.intensity"
+                                  @change="setIntensity(ex, $event.target.value)"
+                                  class="h-10 w-full appearance-none rounded-md border border-white/10 bg-white/5 px-3 pr-9 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark sm:w-[160px] md:w-[180px]"
                                 >
-                                  <option value="reps">Repeticiones</option>
-                                  <option value="time">Tiempo</option>
+                                  <option v-for="n in 10" :key="n" :value="n">
+                                    Intensidad {{ n }}/10
+                                  </option>
                                 </select>
-                              </div>
-
-                              <div class="space-y-2">
-                                <div class="text-[11px] tracking-[0.22em] uppercase text-white/45">
-                                  {{ ex.type === 'time' ? 'Segundos' : 'Reps' }}
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                  </svg>
                                 </div>
-                                <input
-                                  :value="getValue(ex)"
-                                  @input="setValue(ex, $event.target.value)"
-                                  :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
-                                  inputmode="numeric"
-                                  class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
-                                />
                               </div>
                             </div>
 
-                            <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center gap-2 shrink-0">
                               <button
                                 type="button"
                                 class="handle inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/65 transition hover:bg-white/8"
                                 aria-label="Mover"
                               >
-                                ☰
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="opacity-85">
+                                  <path d="M12 2v20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                  <path d="M2 12h20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                  <path d="M12 2l-3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M12 2l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M12 22l-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M12 22l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M2 12l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M2 12l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M22 12l-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                  <path d="M22 12l-3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
                               </button>
 
                               <button

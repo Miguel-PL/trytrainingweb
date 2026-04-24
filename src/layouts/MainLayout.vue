@@ -56,7 +56,7 @@ watch(
             </button>
           </div>
 
-          <div class="mb-6">
+          <div class="mb-6 hidden lg:block">
             <div class="text-sm font-black tracking-[0.2em] text-lime-300">
               TRY TRAINING
             </div>

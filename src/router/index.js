@@ -7,6 +7,11 @@ const routes = [
     path: '/',
     component: () => import('../views/LoginView.vue')
   },
+  // TV / kiosk mode (no layout)
+  {
+    path: '/display/:id',
+    component: () => import('../views/DisplayView.vue')
+  },
   {
     path: '/',
     component: MainLayout,
@@ -22,10 +27,6 @@ const routes = [
       {
         path: 'categories',
         component: () => import('../views/CategoriesView.vue')
-      },
-      {
-        path: '/display/:id',
-        component: () => import('../views/DisplayView.vue')
       },
       {
         path: '/workouts/:id/edit',
