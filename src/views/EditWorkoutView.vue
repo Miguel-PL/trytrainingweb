@@ -73,9 +73,16 @@ const addBlock = () => {
 }
 
 const removeBlock = (blockToRemove) => {
-  workout.value.blocks = workout.value.blocks.filter(
-    b => b !== blockToRemove
-  )
+  confirmRemove.value = {
+    open: true,
+    blockName: blockToRemove?.name || '',
+    exName: '',
+    onConfirm: () => {
+      workout.value.blocks = workout.value.blocks.filter(b => b !== blockToRemove)
+      confirmRemove.value.open = false
+      showToast('success', 'Eliminado', 'Bloque eliminado.')
+    },
+  }
 }
 
 // EJERCICIOS
@@ -261,9 +268,11 @@ onMounted(async () => {
 
     <UiConfirmModal
       :open="confirmRemove.open"
-      title="Quitar ejercicio"
-      :message="`Vas a quitar ${confirmRemove.exName || 'este ejercicio'}${confirmRemove.blockName ? ` del bloque ${confirmRemove.blockName}` : ''}.`"
-      confirm-text="Quitar"
+      :title="confirmRemove.exName ? 'Quitar ejercicio' : 'Eliminar bloque'"
+      :message="confirmRemove.exName
+        ? `Vas a quitar ${confirmRemove.exName || 'este ejercicio'}${confirmRemove.blockName ? ` del bloque ${confirmRemove.blockName}` : ''}.`
+        : `Vas a eliminar ${confirmRemove.blockName ? `el bloque ${confirmRemove.blockName}` : 'este bloque'}.`"
+      :confirm-text="confirmRemove.exName ? 'Quitar' : 'Eliminar'"
       cancel-text="Cancelar"
       tone="danger"
       @confirm="confirmRemove.onConfirm && confirmRemove.onConfirm()"

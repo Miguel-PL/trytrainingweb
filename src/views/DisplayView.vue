@@ -7,23 +7,10 @@ import { validateExerciseMediaUrl } from '../utils/videoUrl'
 const route = useRoute()
 const workout = ref(null)
 
-const getGridClass = (count) => {
-  if (count === 1) return 'grid-cols-1'
-  if (count === 2) return 'grid-cols-2'
-  if (count === 3) return 'grid-cols-3'
-  if (count === 4) return 'grid-cols-4'
-  return 'grid-cols-4'
-}
-const formatType = (ex) => {
-  return ex.type === 'time'
-    ? `${ex.value} segundos`
-    : `${ex.value} repeticiones`
-}
-
 const formatPrimaryMetric = (ex) => {
   const value = ex?.value ?? ''
-  if (ex?.type === 'time') return `${value} segundos`
-  return `${value} repeticiones`
+  if (ex?.type === 'time') return `${value} SEC`
+  return `${value} REPS`
 }
 
 const getMedia = (ex) => {
@@ -36,37 +23,24 @@ const parseIntensity = (raw) => {
   const s = String(raw ?? '').trim()
   if (!s) return null
 
-  // Accept formats: "5/10", "5", "85%", "8/10"
   const percentMatch = s.match(/^(\d{1,3})\s*%$/)
   if (percentMatch) {
     const p = Math.max(0, Math.min(100, Number(percentMatch[1])))
-    return { value: p, max: 100, percent: p, label: `${p}%` }
+    return { label: `${p}%` }
   }
 
   const fracMatch = s.match(/^(\d+)\s*\/\s*(\d+)$/)
   if (fracMatch) {
-    const v = Number(fracMatch[1])
-    const m = Number(fracMatch[2])
-    if (!Number.isFinite(v) || !Number.isFinite(m) || m <= 0) return null
-    const p = Math.max(0, Math.min(100, Math.round((v / m) * 100)))
-    return { value: v, max: m, percent: p, label: `${v}/${m}` }
+    return { label: `${fracMatch[1]}/${fracMatch[2]}` }
   }
 
   const v = Number(s)
   if (!Number.isFinite(v)) return null
-  // default assume /10
-  const clamped = Math.max(0, Math.min(10, v))
-  const p = Math.max(0, Math.min(100, Math.round((clamped / 10) * 100)))
-  return { value: clamped, max: 10, percent: p, label: `${clamped}/10` }
-}
-
-const intensityTone = (percent) => {
-  if (percent >= 75) return 'high'
-  if (percent >= 45) return 'mid'
-  return 'low'
+  return { label: `${v}/10` }
 }
 
 const blocksCount = () => (workout.value?.blocks?.length ?? 0)
+
 const maxExercises = () => {
   const blocks = workout.value?.blocks || []
   let max = 0
@@ -76,14 +50,29 @@ const maxExercises = () => {
   return max
 }
 
+const totalExercises = () => {
+  return workout.value?.blocks?.reduce(
+    (acc, b) => acc + (b.exercises?.length || 0),
+    0
+  ) || 0
+}
+
+const isLowDensity = computed(() => totalExercises() <= 6)
+
 const blockGridStyle = () => {
   const rows = Math.max(1, blocksCount())
   const cols = Math.max(1, maxExercises())
-  // Global fixed grid: rows = blocks, cols = max exercises
+
+  if (isLowDensity.value) {
+    return {
+      gridTemplateRows: `repeat(${rows}, 1fr)`,
+      gridTemplateColumns: `minmax(80px, 120px) repeat(${cols}, 1fr)`,
+    }
+  }
+
   return {
-    gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-    // +1 column for block titles on the left
-    gridTemplateColumns: `minmax(56px, 72px) repeat(${cols}, minmax(0, 1fr))`,
+    gridTemplateRows: `repeat(${rows}, 1fr)`,
+    gridTemplateColumns: `minmax(56px, 72px) repeat(${cols}, 1fr)`,
   }
 }
 
@@ -95,15 +84,12 @@ const tvVars = computed(() => {
   const rows = Math.max(1, blocksCount())
   const cols = Math.max(1, maxExercises())
 
-  // Heuristic sizing for TV readability; higher density => smaller text.
-  const name = Math.max(12, Math.round(22 - rows * 1.2 - cols * 1.2))
-  const meta = Math.max(10, Math.round(name * 0.7))
-  const block = Math.max(10, Math.round(name * 0.65))
+  const base = Math.max(10, Math.round(22 - rows * 1.2 - cols * 1.2))
 
   return {
-    '--tv-name': `${name}px`,
-    '--tv-meta': `${meta}px`,
-    '--tv-block': `${block}px`,
+    '--tv-name': `${isLowDensity.value ? base * 1.3 : base}px`,
+    '--tv-meta': `${base * 0.7}px`,
+    '--tv-block': `${base * 0.7}px`,
   }
 })
 
@@ -114,125 +100,129 @@ onMounted(async () => {
 
 <template>
   <div class="h-screen w-screen overflow-hidden bg-black text-white" :style="tvVars">
-    <div v-if="!workout" class="h-full w-full flex items-center justify-center text-sm text-white/55">
+
+    <div v-if="!workout" class="h-full flex items-center justify-center text-white/50">
       Cargando...
     </div>
 
-    <div v-else class="h-full w-full p-2">
-      <div
-        v-if="!(workout.blocks?.length > 0)"
-        class="h-full w-full rounded-xl border border-white/10 bg-white/4 flex items-center justify-center text-sm text-white/55"
-      >
-        Esta sesión no tiene bloques.
+    <div v-else class="h-full w-full p-2 flex flex-col gap-2">
+
+      <!-- HEADER -->
+      <div class="shrink-0">
+        <div class="flex items-center gap-2 text-[10px] uppercase text-white/50">
+          <span class="w-2 h-2 bg-lime-400 rounded-full"></span>
+          Sesión activa
+        </div>
+        <div class="font-black uppercase truncate" style="font-size: 36px">
+          {{ workout?.name || 'Entrenamiento' }}
+        </div>
       </div>
 
-      <div
-        v-else
-        class="grid h-full gap-2"
-        :style="blockGridStyle()"
-      >
+      <!-- GRID -->
+      <div class="grid flex-1 gap-2 min-h-0" :style="blockGridStyle()">
+
         <template v-for="(block, rowIdx) in workout.blocks" :key="block.name">
-          <!-- Block title column (outside videos) -->
+
+          <!-- BLOQUE -->
           <div
-            class="min-w-0 min-h-0 overflow-hidden rounded-lg border border-white/10 bg-white/4 flex items-center justify-center px-3"
+            class="flex items-center justify-center bg-white/5 rounded-xl border border-white/10"
             :style="{ gridRow: rowIdx + 1, gridColumn: 1 }"
           >
             <div
-              class="text-center font-black tracking-[0.22em] uppercase text-lime-200/90 select-none"
-              :style="{
-                fontSize: 'var(--tv-block)',
-                writingMode: 'vertical-rl',
-                textOrientation: 'mixed',
-                transform: 'rotate(180deg)',
-              }"
+              class="font-black uppercase text-lime-300 tracking-wider"
+              style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--tv-block);"
             >
               {{ block.name }}
             </div>
           </div>
 
+          <!-- EJERCICIOS -->
           <div
             v-for="colIdx in Math.max(1, maxExercises())"
             :key="`${block.name}-${colIdx}`"
-            class="min-w-0 min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black/30 flex flex-col relative"
+            class="bg-zinc-900 rounded-xl border border-white/10 overflow-hidden flex flex-col"
             :style="{ gridRow: rowIdx + 1, gridColumn: colIdx + 1 }"
           >
-            <div v-if="getExerciseAt(block, colIdx - 1)" class="min-h-0 flex-1 bg-black/40">
-              <iframe
-                v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
-                :src="getMedia(getExerciseAt(block, colIdx - 1))?.embedUrl"
-                class="h-full w-full"
-                frameborder="0"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowfullscreen
-              />
-              <video
-                v-else-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'file'"
-                :src="getMedia(getExerciseAt(block, colIdx - 1))?.url"
-                autoplay
-                loop
-                muted
-                playsinline
-                class="h-full w-full object-cover"
-              />
+            <template v-if="getExerciseAt(block, colIdx - 1)">
+
+              <!-- VIDEO -->
               <div
-                v-else
-                class="h-full w-full flex items-center justify-center text-[11px] tracking-[0.22em] uppercase text-white/40"
+                class="relative w-full overflow-hidden"
+                :style="{ height: isLowDensity ? '70%' : '60%' }"
               >
-                Sin vídeo
+                <iframe
+                  v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
+                  :src="getMedia(getExerciseAt(block, colIdx - 1))?.embedUrl"
+                  class="absolute top-1/2 left-1/2 w-[140%] h-[140%] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                />
+
+                <video
+                  v-else-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'file'"
+                  :src="getMedia(getExerciseAt(block, colIdx - 1))?.url"
+                  autoplay loop muted playsinline
+                  class="absolute inset-0 w-full h-full object-cover"
+                />
+
+                <div class="absolute inset-0 bg-black/30" />
               </div>
-            </div>
 
-            <div
-              v-else
-              class="min-h-0 flex-1 bg-black/20"
-            />
-
-            <div v-if="getExerciseAt(block, colIdx - 1)" class="shrink-0 border-t border-white/10 bg-black/45">
-              <div class="px-3 py-2">
-                <div class="flex items-end justify-between gap-3">
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-baseline justify-center gap-3 min-w-0">
-                      <div
-                        class="truncate font-black tracking-wide text-white/95"
-                        :style="{ fontSize: 'var(--tv-name)', maxWidth: '70%' }"
-                      >
-                        {{ getExerciseAt(block, colIdx - 1).name }}
-                      </div>
-                      <div
-                        class="shrink-0 font-black tracking-wide text-lime-200"
-                        :style="{ fontSize: 'calc(var(--tv-name) * 1.15)' }"
-                      >
-                        {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
-                      </div>
-                    </div>
+              <!-- INFO -->
+              <div
+                class="flex flex-col flex-1 p-3"
+                :class="isLowDensity ? 'justify-center gap-3' : 'justify-between'"
+              >
+                <!-- NOMBRE + MÉTRICA -->
+                <div class="flex items-baseline justify-between gap-3 min-w-0">
+                  <div
+                    class="uppercase font-bold truncate text-white/95"
+                    :style="{
+                      fontSize: isLowDensity
+                        ? 'calc(var(--tv-name) * 1.25)'
+                        : 'var(--tv-name)'
+                    }"
+                    :title="getExerciseAt(block, colIdx - 1).name"
+                  >
+                    {{ getExerciseAt(block, colIdx - 1).name }}
                   </div>
-
-                  <div class="shrink-0 text-right">
-                    <div
-                      v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
-                      class="inline-flex items-center gap-2 rounded-md border px-2 py-1"
-                      :class="{
-                        'border-lime-300/20 bg-lime-400/15 text-lime-200': intensityTone(parseIntensity(getExerciseAt(block, colIdx - 1).intensity).percent) === 'low',
-                        'border-amber-300/20 bg-amber-400/15 text-amber-200': intensityTone(parseIntensity(getExerciseAt(block, colIdx - 1).intensity).percent) === 'mid',
-                        'border-red-400/20 bg-red-500/10 text-red-200': intensityTone(parseIntensity(getExerciseAt(block, colIdx - 1).intensity).percent) === 'high',
-                      }"
-                      :style="{ fontSize: 'var(--tv-meta)' }"
-                    >
-                      <span class="font-semibold">Intensidad</span>
-                      <span class="font-extrabold">{{ parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label }}</span>
-                    </div>
-                    <div
-                      v-else
-                      class="text-white/55 font-semibold"
-                      :style="{ fontSize: 'var(--tv-meta)' }"
-                    >
-                      Intensidad: {{ getExerciseAt(block, colIdx - 1).intensity }}
-                    </div>
+                  <div
+                    class="shrink-0 font-black leading-none text-lime-300"
+                    :style="{
+                      fontSize: isLowDensity
+                        ? 'calc(var(--tv-name) * 2.25)'
+                        : 'calc(var(--tv-name) * 1.8)'
+                    }"
+                  >
+                    {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
                   </div>
                 </div>
+
+                <!-- INTENSIDAD -->
+                <div
+                  v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
+                  class="text-white/65 font-semibold"
+                  :style="{
+                    fontSize: 'var(--tv-meta)',
+                    marginTop: isLowDensity ? '2px' : '6px'
+                  }"
+                >
+                  <span class="uppercase tracking-wide text-white/55">Intensidad</span>
+                  <span class="mx-2 text-white/35">·</span>
+                  <span class="font-extrabold text-white/80">
+                    {{ parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label }}
+                  </span>
+                </div>
+
               </div>
+
+            </template>
+
+            <!-- EMPTY -->
+            <div v-else class="flex items-center justify-center h-full text-white/20 text-xl">
+              —
             </div>
+
           </div>
+
         </template>
       </div>
     </div>
