@@ -37,14 +37,14 @@ watch(
       >
         <div class="flex h-full flex-col px-5 py-6">
           <!-- Mobile header inside drawer -->
-          <div class="mb-6 flex items-start justify-between lg:hidden">
-            <div>
-              <div class="text-sm font-black tracking-[0.2em] text-lime-300">
-                TRY TRAINING
-              </div>
-              <div class="mt-1 text-[10px] tracking-[0.28em] uppercase text-white/40">
-                Elite management
-              </div>
+          <div class="mb-6 flex items-center justify-between gap-3 lg:hidden">
+            <div class="flex flex-1 justify-center">
+              <img
+                src="/logo_white.png"
+                alt="TryTraining"
+                class="h-12 w-auto object-contain"
+                draggable="false"
+              />
             </div>
             <button
               type="button"
@@ -56,13 +56,13 @@ watch(
             </button>
           </div>
 
-          <div class="mb-6 hidden lg:block">
-            <div class="text-sm font-black tracking-[0.2em] text-lime-300">
-              TRY TRAINING
-            </div>
-            <div class="mt-1 text-[10px] tracking-[0.28em] uppercase text-white/40">
-              Elite management
-            </div>
+          <div class="mb-6 hidden justify-center lg:flex">
+            <img
+              src="/logo_white.png"
+              alt="TryTraining"
+              class="h-12 w-auto object-contain"
+              draggable="false"
+            />
           </div>
 
           <nav class="flex flex-col gap-2">

@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { apiFetch } from '../services/api'
 import UiToast from '../components/ui/UiToast.vue'
 import { useToast } from '../composables/useToast'
@@ -8,6 +9,7 @@ import { useToast } from '../composables/useToast'
 const email = ref('')
 const password = ref('')
 const router = useRouter()
+const route = useRoute()
 const { toast, showToast, closeToast } = useToast()
 
 const login = async () => {
@@ -28,7 +30,8 @@ const login = async () => {
     if (!token) throw new Error('Login OK pero falta token en la respuesta')
     localStorage.setItem('token', token)
 
-    router.push('/workouts')
+    const redirect = typeof route.query?.redirect === 'string' ? route.query.redirect : null
+    router.push(redirect || '/workouts')
 
   } catch (error) {
     console.error('ERROR FETCH:', error)
@@ -62,6 +65,12 @@ const login = async () => {
       <!-- Panel izquierdo -->
       <div class="flex w-full items-center px-6 py-12 sm:px-10 lg:w-[46%]">
         <div class="w-full max-w-md">
+          <!-- <img
+              src="/logo_white.png"
+              alt="TryTraining"
+              class="h-10 w-auto object-contain sm:h-12"
+              draggable="false"
+            /> -->
           <h1 class="text-4xl sm:text-5xl font-black tracking-tight italic">
             <span class="text-white/90">TRY</span><span class="text-lime-400">TRAINING</span>
           </h1>
