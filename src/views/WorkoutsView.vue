@@ -4,6 +4,7 @@ import { apiFetch } from '../services/api'
 import { useRoute, useRouter } from 'vue-router'
 import UiToast from '../components/ui/UiToast.vue'
 import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import UiSpinner from '../components/ui/UiSpinner.vue'
 import { useToast } from '../composables/useToast'
 
 const router = useRouter()
@@ -16,6 +17,7 @@ const workouts = ref([])
 const search = ref('')
 const currentPage = ref(1)
 const lastPage = ref(1)
+const loadingInitial = ref(true)
 
 const fetchWorkouts = async (page = 1) => {
   let url = `/workouts?page=${page}`
@@ -30,14 +32,6 @@ const fetchWorkouts = async (page = 1) => {
   currentPage.value = response.current_page
   lastPage.value = response.last_page
 }
-
-onMounted(() => {
-  fetchWorkouts()
-})
-
-watch(search, () => {
-  fetchWorkouts(1)
-})
 
 const deleteWorkout = async (id) => {
   confirmDelete.value = {
@@ -63,11 +57,24 @@ const performDeleteWorkout = async () => {
   }
 }
 
-onMounted(() => {
-  const t = String(route.query?.toast || '')
-  if (t === 'saved') showToast('success', 'Guardado', 'Sesión guardada con éxito.')
-  if (t === 'updated') showToast('success', 'Actualizado', 'Sesión actualizada con éxito.')
-  if (t === 'deleted') showToast('success', 'Eliminado', 'Sesión borrada con éxito.')
+watch(search, () => {
+  fetchWorkouts(1)
+})
+
+onMounted(async () => {
+  loadingInitial.value = true
+  try {
+    await fetchWorkouts()
+
+    const t = String(route.query?.toast || '')
+    if (t === 'saved') showToast('success', 'Guardado', 'Sesión guardada con éxito.')
+    if (t === 'updated') showToast('success', 'Actualizado', 'Sesión actualizada con éxito.')
+    if (t === 'deleted') showToast('success', 'Eliminado', 'Sesión borrada con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudieron cargar las sesiones.')
+  } finally {
+    loadingInitial.value = false
+  }
 })
 </script>
 
@@ -92,6 +99,14 @@ onMounted(() => {
       @confirm="performDeleteWorkout"
       @cancel="confirmDelete.open = false"
     />
+
+    <!-- Spinner de carga inicial -->
+    <div v-if="loadingInitial" class="flex h-screen items-center justify-center">
+      <UiSpinner size="lg" class="text-lime-400" />
+    </div>
+
+    <!-- Contenido -->
+    <template v-else>
 
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -247,5 +262,6 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

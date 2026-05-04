@@ -3,12 +3,16 @@ import { ref, onMounted } from 'vue'
 import { apiFetch } from '../services/api'
 import UiToast from '../components/ui/UiToast.vue'
 import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import UiSpinner from '../components/ui/UiSpinner.vue'
 import { useToast } from '../composables/useToast'
 
 const categories = ref([])
 const newCategory = ref('')
 const editingId = ref(null)
 const editingName = ref('')
+const loadingCreate = ref(false)
+const loadingUpdateId = ref(null)
+const loadingInitial = ref(true)
 const { toast, showToast, closeToast } = useToast()
 
 const confirmDelete = ref({ open: false, id: null, name: '', loading: false })
@@ -16,6 +20,7 @@ const confirmDelete = ref({ open: false, id: null, name: '', loading: false })
 const createCategory = async () => {
   if (!newCategory.value.trim()) return
 
+  loadingCreate.value = true
   try {
     const cat = await apiFetch('/categories', {
       method: 'POST',
@@ -27,6 +32,8 @@ const createCategory = async () => {
     showToast('success', 'Guardado', 'Categoría creada con éxito.')
   } catch (e) {
     showToast('error', 'Error', e?.message || 'No se pudo crear la categoría.')
+  } finally {
+    loadingCreate.value = false
   }
 }
 
@@ -36,6 +43,7 @@ const startEdit = (cat) => {
 }
 
 const updateCategory = async (cat) => {
+  loadingUpdateId.value = cat.id
   try {
     const updated = await apiFetch(`/categories/${cat.id}`, {
       method: 'PUT',
@@ -47,6 +55,8 @@ const updateCategory = async (cat) => {
     showToast('success', 'Actualizado', 'Categoría actualizada con éxito.')
   } catch (e) {
     showToast('error', 'Error', e?.message || 'No se pudo actualizar la categoría.')
+  } finally {
+    loadingUpdateId.value = null
   }
 }
 
@@ -70,7 +80,14 @@ const performDeleteCategory = async () => {
 }
 
 onMounted(async () => {
-  categories.value = await apiFetch('/categories')
+  loadingInitial.value = true
+  try {
+    categories.value = await apiFetch('/categories')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudieron cargar las categorías.')
+  } finally {
+    loadingInitial.value = false
+  }
 })
 </script>
 
@@ -83,6 +100,14 @@ onMounted(async () => {
       :message="toast.message"
       @close="closeToast"
     />
+
+    <!-- Spinner de carga inicial -->
+    <div v-if="loadingInitial" class="flex h-screen items-center justify-center">
+      <UiSpinner size="lg" class="text-lime-400" />
+    </div>
+
+    <!-- Contenido -->
+    <template v-else>
 
     <UiConfirmModal
       :open="confirmDelete.open"
@@ -127,9 +152,11 @@ onMounted(async () => {
             <button
               type="button"
               @click="createCategory"
-              class="inline-flex h-11 items-center justify-center rounded-md border border-lime-300/20 bg-lime-400 px-5 text-xs font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300"
+              :disabled="loadingCreate"
+              class="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-lime-300/20 bg-lime-400 px-5 text-xs font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300 disabled:opacity-80 disabled:cursor-not-allowed"
             >
-              CREAR
+              <UiSpinner v-if="loadingCreate" size="md" class="text-black" />
+              <span>{{ loadingCreate ? 'CREANDO' : 'CREAR' }}</span>
             </button>
           </div>
         </div>
@@ -186,9 +213,11 @@ onMounted(async () => {
                       v-else
                       type="button"
                       @click="updateCategory(cat)"
-                      class="inline-flex h-9 items-center justify-center rounded-md border border-lime-300/20 bg-lime-400 px-4 text-xs font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300"
+                      :disabled="loadingUpdateId === cat.id"
+                      class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-lime-300/20 bg-lime-400 px-4 text-xs font-extrabold tracking-wide text-black shadow-[0_20px_45px_-30px_rgba(163,230,53,0.75)] transition hover:bg-lime-300 disabled:opacity-80 disabled:cursor-not-allowed"
                     >
-                      GUARDAR
+                      <UiSpinner v-if="loadingUpdateId === cat.id" size="sm" class="text-black" />
+                      <span>{{ loadingUpdateId === cat.id ? 'GUARDANDO' : 'GUARDAR' }}</span>
                     </button>
 
                     <button
@@ -217,5 +246,6 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

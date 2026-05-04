@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { watch } from 'vue'
 import UiToast from '../components/ui/UiToast.vue'
 import UiConfirmModal from '../components/ui/UiConfirmModal.vue'
+import UiSpinner from '../components/ui/UiSpinner.vue'
 import { useToast } from '../composables/useToast'
 
 const router = useRouter()
@@ -13,6 +14,7 @@ const route = useRoute()
 const exercises = ref([])
 const categories = ref([])
 const totalExercises = ref(null)
+const loadingInitial = ref(true)
 
 const { toast, showToast, closeToast } = useToast()
 
@@ -103,13 +105,20 @@ watch([search, selectedCategory], () => {
 })
 
 onMounted(async () => {
-  await fetchExercises()
-  categories.value = await apiFetch('/categories')
+  loadingInitial.value = true
+  try {
+    await fetchExercises()
+    categories.value = await apiFetch('/categories')
 
-  const t = String(route.query?.toast || '')
-  if (t === 'saved') showToast('success', 'Guardado', 'Ejercicio guardado con éxito.')
-  if (t === 'updated') showToast('success', 'Actualizado', 'Ejercicio actualizado con éxito.')
-  if (t === 'deleted') showToast('success', 'Eliminado', 'Ejercicio borrado con éxito.')
+    const t = String(route.query?.toast || '')
+    if (t === 'saved') showToast('success', 'Guardado', 'Ejercicio guardado con éxito.')
+    if (t === 'updated') showToast('success', 'Actualizado', 'Ejercicio actualizado con éxito.')
+    if (t === 'deleted') showToast('success', 'Eliminado', 'Ejercicio borrado con éxito.')
+  } catch (e) {
+    showToast('error', 'Error', e?.message || 'No se pudieron cargar los ejercicios.')
+  } finally {
+    loadingInitial.value = false
+  }
 })
 
 </script>
@@ -135,6 +144,14 @@ onMounted(async () => {
       @confirm="performDeleteExercise"
       @cancel="confirmDelete.open = false"
     />
+
+    <!-- Spinner de carga inicial -->
+    <div v-if="loadingInitial" class="flex h-screen items-center justify-center">
+      <UiSpinner size="lg" class="text-lime-400" />
+    </div>
+
+    <!-- Contenido -->
+    <template v-else>
 
     <!-- Cabecera -->
     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -302,6 +319,7 @@ onMounted(async () => {
         </button>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
