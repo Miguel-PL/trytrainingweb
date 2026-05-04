@@ -8,18 +8,30 @@ import { useToast } from '../composables/useToast'
 
 const email = ref('')
 const password = ref('')
+const emailInput = ref(null)
 const router = useRouter()
 const route = useRoute()
 const { toast, showToast, closeToast } = useToast()
 
+const isValidEmail = (value) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 const login = async () => {
   console.log('LOGIN CLICK')
+
+  const normalizedEmail = email.value.trim()
+  if (!isValidEmail(normalizedEmail)) {
+    showToast('error', 'Correo inválido', 'Introduce un correo válido para continuar.')
+    emailInput.value?.focus()
+    return
+  }
 
   try {
     const data = await apiFetch('/login', {
       method: 'POST',
       body: {
-        email: email.value,
+        email: normalizedEmail,
         password: password.value,
       },
     })
@@ -79,7 +91,7 @@ const login = async () => {
             Introduce tus datos de acceso.
           </p>
 
-          <form @submit.prevent="login" class="mt-10 space-y-6">
+          <form @submit.prevent="login" novalidate class="mt-10 space-y-6">
             <div class="space-y-2">
               <label class="text-[11px] tracking-[0.22em] uppercase text-white/50">Email</label>
               <div class="group relative">
@@ -102,8 +114,9 @@ const login = async () => {
                 </div>
 
                 <input
+                  ref="emailInput"
                   v-model="email"
-                  type="email"
+                  type="text"
                   inputmode="email"
                   autocomplete="email"
                   placeholder="hola@trytraining.com"
