@@ -6,6 +6,30 @@ import { validateExerciseMediaUrl } from '../utils/videoUrl'
 
 const route = useRoute()
 const workout = ref(null)
+const isFullscreen = ref(false)
+
+const toggleFullscreen = async () => {
+  const elem = document.documentElement
+  if (!isFullscreen.value) {
+    try {
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen()
+        isFullscreen.value = true
+      }
+    } catch (err) {
+      console.error('Error entering fullscreen:', err)
+    }
+  } else {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        isFullscreen.value = false
+      }
+    } catch (err) {
+      console.error('Error exiting fullscreen:', err)
+    }
+  }
+}
 
 const formatPrimaryMetric = (ex) => {
   const value = ex?.value ?? ''
@@ -108,14 +132,30 @@ onMounted(async () => {
     <div v-else class="h-full w-full p-2 flex flex-col gap-2">
 
       <!-- HEADER -->
-      <div class="shrink-0">
-        <div class="flex items-center gap-2 text-[10px] uppercase text-white/50">
-          <span class="w-2 h-2 bg-lime-400 rounded-full"></span>
-          Sesión activa
+      <div class="shrink-0 flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-2 text-[10px] uppercase text-white/50">
+            <span class="w-2 h-2 bg-lime-400 rounded-full"></span>
+            Sesión activa
+          </div>
+          <div class="font-black uppercase truncate" style="font-size: 36px">
+            {{ workout?.name || 'Entrenamiento' }}
+          </div>
         </div>
-        <div class="font-black uppercase truncate" style="font-size: 36px">
-          {{ workout?.name || 'Entrenamiento' }}
-        </div>
+
+        <button
+          @click="toggleFullscreen"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/75 transition hover:bg-white/8 focus:outline-none focus:ring-2 focus:ring-lime-400/40"
+          :title="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'"
+          aria-label="Toggle fullscreen"
+        >
+          <svg v-if="!isFullscreen" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M3 7V3h4M3 17v4h4M21 7V3h-4M21 17v4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M8 3v4H4M16 3v4h4M8 21v-4H4M16 21v-4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
       </div>
 
       <!-- GRID -->
