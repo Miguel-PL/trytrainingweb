@@ -21,6 +21,20 @@ const isEdit = !!route.params.id
 
 // SAVE 
 const saveWorkout = async () => {
+  // Validar que todos los ejercicios tengan valores
+  for (const block of workout.value.blocks) {
+    for (const ex of block.block_exercises) {
+      if (ex.type === 'reps' && !ex.reps) {
+        showToast('error', 'Campo requerido', `${ex.exercise?.name || 'Un ejercicio'} debe tener repeticiones.`)
+        return
+      }
+      if (ex.type === 'time' && !ex.time) {
+        showToast('error', 'Campo requerido', `${ex.exercise?.name || 'Un ejercicio'} debe tener duración.`)
+        return
+      }
+    }
+  }
+
   const payload = {
     name: workout.value.name,
     date: workout.value.date,
@@ -501,7 +515,12 @@ onMounted(async () => {
                                 @input="setValue(ex, $event.target.value)"
                                 :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
                                 inputmode="numeric"
-                                class="h-10 w-[86px] shrink-0 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                                :class="[
+                                  'h-10 w-[86px] shrink-0 rounded-md border px-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15',
+                                  (ex.type === 'reps' && !ex.reps) || (ex.type === 'time' && !ex.time)
+                                    ? 'border-red-500/60 bg-red-500/10'
+                                    : 'border-white/10 bg-white/5'
+                                ]"
                               />
 
                               <div class="relative w-full sm:w-auto sm:shrink-0">
