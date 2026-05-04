@@ -422,39 +422,33 @@ onMounted(async () => {
                     <template #item="{ element: ex }">
                       <div class="rounded-lg border border-white/10 bg-white/3 px-3 py-3">
                         <div class="flex flex-wrap items-center gap-2">
-                          <!-- Nombre seleccionado -->
-                          <div class="w-full sm:w-[260px] sm:flex-none">
-                            <div
-                              v-if="ex.exercise?.name"
-                              class="flex h-10 items-center justify-between gap-2 rounded-md border border-lime-300/20 bg-lime-400/15 px-3"
-                            >
-                              <div class="truncate text-sm font-extrabold tracking-wide text-lime-100">
-                                {{ ex.exercise.name }}
-                              </div>
-                              <button
-                                type="button"
-                                @click="ex.exercise = null; ex.exercise_id = null"
-                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-lime-300/15 bg-black/10 text-lime-100/80 hover:text-lime-100"
-                                aria-label="Quitar"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                            <div v-else class="flex h-10 items-center rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/45">
-                              Sin ejercicio
-                            </div>
-                          </div>
-
-                          <!-- Filtro -->
-                          <div class="relative w-full sm:flex-1 sm:min-w-[240px] lg:min-w-[360px]">
+                          <!-- Búsqueda combinada (busca y guarda) -->
+                          <div class="relative w-full sm:w-[380px] sm:flex-none">
                             <input
                               v-model="ex.search"
-                              placeholder="Buscar ejercicio..."
-                              class="w-full rounded-md border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15"
+                              :placeholder="ex.exercise?.name || 'Buscar ejercicio...'"
+                              :class="[
+                                'w-full rounded-md border px-4 py-2.5 text-sm outline-none transition focus:ring-2',
+                                ex.exercise?.name
+                                  ? 'border-lime-300/40 bg-lime-400/10 text-white placeholder:text-lime-200/60 focus:border-lime-400/60 focus:ring-lime-400/20'
+                                  : 'border-white/10 bg-white/5 text-white placeholder:text-white/35 focus:border-lime-400/40 focus:ring-lime-400/15'
+                              ]"
                               @focus="openDropdown(ex)"
                               @blur="closeDropdown(ex)"
                             />
 
+                            <!-- Botón para limpiar selección -->
+                            <button
+                              v-if="ex.exercise?.name"
+                              type="button"
+                              @click="ex.exercise = null; ex.exercise_id = null; ex.search = ''"
+                              class="absolute right-2 top-1/2 inline-flex -translate-y-1/2 h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/50 hover:bg-white/8 hover:text-white/75"
+                              aria-label="Limpiar"
+                            >
+                              ✕
+                            </button>
+
+                            <!-- Dropdown de búsqueda -->
                             <div
                               v-if="(ex.dropdownOpen || ex.search) && getFilteredExercises(ex).length"
                               class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
