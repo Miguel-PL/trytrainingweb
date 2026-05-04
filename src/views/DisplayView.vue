@@ -108,12 +108,12 @@ const tvVars = computed(() => {
   const rows = Math.max(1, blocksCount())
   const cols = Math.max(1, maxExercises())
 
-  const base = Math.max(10, Math.round(22 - rows * 1.2 - cols * 1.2))
+  const base = Math.max(12, Math.round(22 - rows * 1.2 - cols * 1.2))
 
   return {
-    '--tv-name': `${isLowDensity.value ? base * 1.3 : base}px`,
-    '--tv-meta': `${base * 0.7}px`,
-    '--tv-block': `${base * 0.7}px`,
+    '--tv-name': `${isLowDensity.value ? base * 1.5 : base * 1.2}px`,
+    '--tv-meta': `${base * 0.95}px`,
+    '--tv-block': `${base * 1.5}px`,
   }
 })
 
@@ -188,7 +188,7 @@ onMounted(async () => {
               <!-- VIDEO -->
               <div
                 class="relative w-full overflow-hidden"
-                :style="{ height: isLowDensity ? '70%' : '60%' }"
+                :style="{ height: isLowDensity ? '80%' : '75%' }"
               >
                 <iframe
                   v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
@@ -208,8 +208,8 @@ onMounted(async () => {
 
               <!-- INFO -->
               <div
-                class="flex flex-col flex-1 p-3"
-                :class="isLowDensity ? 'justify-center gap-3' : 'justify-between'"
+                class="flex flex-col flex-1 px-3 py-2"
+                :class="isLowDensity ? 'justify-center gap-2' : 'justify-between'"
               >
                 <!-- NOMBRE + MÉTRICA -->
                 <div class="flex items-baseline justify-between gap-3 min-w-0">
@@ -217,8 +217,8 @@ onMounted(async () => {
                     class="uppercase font-bold truncate text-white/95"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 1.25)'
-                        : 'var(--tv-name)'
+                        ? 'calc(var(--tv-name) * 1.4)'
+                        : 'calc(var(--tv-name) * 1.15)'
                     }"
                     :title="getExerciseAt(block, colIdx - 1).name"
                   >
@@ -228,8 +228,8 @@ onMounted(async () => {
                     class="shrink-0 font-black leading-none text-lime-300"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 2.25)'
-                        : 'calc(var(--tv-name) * 1.8)'
+                        ? 'calc(var(--tv-name) * 2.5)'
+                        : 'calc(var(--tv-name) * 2)'
                     }"
                   >
                     {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
@@ -241,8 +241,8 @@ onMounted(async () => {
                   v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
                   class="text-white/65 font-semibold"
                   :style="{
-                    fontSize: 'var(--tv-meta)',
-                    marginTop: isLowDensity ? '2px' : '6px'
+                    fontSize: 'calc(var(--tv-meta) * 1.1)',
+                    marginTop: isLowDensity ? '2px' : '4px'
                   }"
                 >
                   <span class="uppercase tracking-wide text-white/55">Intensidad</span>
