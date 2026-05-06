@@ -139,7 +139,9 @@ const getValue = (ex) => {
 }
 
 const setValue = (ex, value) => {
-  const v = value === '' || value === null || value === undefined ? null : Number(value)
+  // Filtrar solo números
+  const filtered = String(value).replace(/[^0-9]/g, '')
+  const v = filtered === '' ? null : Number(filtered)
   if (ex?.type === 'time') {
     ex.time = Number.isFinite(v) ? v : null
     ex.reps = null
@@ -147,6 +149,13 @@ const setValue = (ex, value) => {
     ex.reps = Number.isFinite(v) ? v : null
     ex.time = null
   }
+}
+
+const handleNumericInput = (ex, event) => {
+  // Filtrar en tiempo real: solo permitir números
+  const filtered = event.target.value.replace(/[^0-9]/g, '')
+  event.target.value = filtered
+  setValue(ex, filtered)
 }
 
 const parseIntensityTo10 = (raw) => {
@@ -506,7 +515,7 @@ onMounted(async () => {
 
                               <input
                                 :value="getValue(ex)"
-                                @input="setValue(ex, $event.target.value)"
+                                @input="handleNumericInput(ex, $event)"
                                 :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
                                 inputmode="numeric"
                                 :class="[

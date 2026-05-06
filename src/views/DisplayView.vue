@@ -212,13 +212,15 @@ onMounted(async () => {
                 :class="isLowDensity ? 'justify-center gap-2' : 'justify-between'"
               >
                 <!-- NOMBRE + MÉTRICA -->
-                <div class="flex items-baseline justify-between gap-3 min-w-0">
+                <div class="flex items-baseline justify-between gap-2 min-w-0 flex-wrap">
                   <div
-                    class="uppercase font-bold truncate text-white/95"
+                    class="uppercase font-bold text-white/95 min-w-0"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 1.4)'
-                        : 'calc(var(--tv-name) * 1.15)'
+                        ? 'calc(var(--tv-name) * 1.6)'
+                        : 'calc(var(--tv-name) * 1.0)',
+                      wordBreak: 'break-word',
+                      flex: '1 1 auto'
                     }"
                     :title="getExerciseAt(block, colIdx - 1).name"
                   >
@@ -228,8 +230,8 @@ onMounted(async () => {
                     class="shrink-0 font-black leading-none text-lime-300"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 2.5)'
-                        : 'calc(var(--tv-name) * 2)'
+                        ? 'calc(var(--tv-name) * 1.8)'
+                        : 'calc(var(--tv-name) * 1.1)'
                     }"
                   >
                     {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
