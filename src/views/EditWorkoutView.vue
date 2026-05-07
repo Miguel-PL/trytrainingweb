@@ -19,22 +19,18 @@ const categories = ref([])
 
 const isEdit = !!route.params.id
 
+const MAX_FIELD_LEN = 255
+
+const normalizeFieldForApi = (v) => {
+  if (v == null) return null
+  let s = String(v).trim()
+  if (!s) return null
+  if (s.length > MAX_FIELD_LEN) s = s.slice(0, MAX_FIELD_LEN)
+  return s
+}
+
 // SAVE 
 const saveWorkout = async () => {
-  // Validar que todos los ejercicios tengan valores
-  for (const block of workout.value.blocks) {
-    for (const ex of block.block_exercises) {
-      if (ex.type === 'reps' && !ex.reps) {
-        showToast('error', 'Campo requerido', `${ex.exercise?.name || 'Un ejercicio'} debe tener repeticiones.`)
-        return
-      }
-      if (ex.type === 'time' && !ex.time) {
-        showToast('error', 'Campo requerido', `${ex.exercise?.name || 'Un ejercicio'} debe tener duración.`)
-        return
-      }
-    }
-  }
-
   const payload = {
     name: workout.value.name,
     date: workout.value.date,
@@ -46,9 +42,9 @@ const saveWorkout = async () => {
         id: ex.id,
         exercise_id: ex.exercise_id,
         type: ex.type,
-        reps: ex.reps,
-        time: ex.time,
-        intensity: ex.intensity,
+        reps: ex.type === 'reps' ? normalizeFieldForApi(ex.reps) : null,
+        time: ex.type === 'time' ? normalizeFieldForApi(ex.time) : null,
+        intensity: normalizeFieldForApi(ex.intensity),
         order: ex.order
       }))
     }))
@@ -108,7 +104,7 @@ const addExercise = (block) => {
     type: 'reps',
     reps: null,
     time: null,
-    intensity: 5,
+    intensity: null,
     order: block.block_exercises.length + 1,
     search: '',
     selectedCategory: 'all',
@@ -135,58 +131,25 @@ const handleTypeChange = (ex) => {
 }
 
 const getValue = (ex) => {
-  return ex?.type === 'time' ? (ex.time ?? '') : (ex.reps ?? '')
+  const raw = ex?.type === 'time' ? ex.time : ex.reps
+  if (raw == null) return ''
+  return String(raw)
 }
 
-const setValue = (ex, value) => {
-  // Filtrar solo números
-  const filtered = String(value).replace(/[^0-9]/g, '')
-  const v = filtered === '' ? null : Number(filtered)
+const setMetricValue = (ex, raw) => {
+  const s = String(raw ?? '').slice(0, MAX_FIELD_LEN)
   if (ex?.type === 'time') {
-    ex.time = Number.isFinite(v) ? v : null
+    ex.time = s === '' ? null : s
     ex.reps = null
   } else {
-    ex.reps = Number.isFinite(v) ? v : null
+    ex.reps = s === '' ? null : s
     ex.time = null
   }
 }
 
-const handleNumericInput = (ex, event) => {
-  // Filtrar en tiempo real: solo permitir números
-  const filtered = event.target.value.replace(/[^0-9]/g, '')
-  event.target.value = filtered
-  setValue(ex, filtered)
-}
-
-const parseIntensityTo10 = (raw) => {
-  const s = String(raw ?? '').trim()
-  if (!s) return 5
-
-  const frac = s.match(/^(\d+)\s*\/\s*(\d+)$/)
-  if (frac) {
-    const v = Number(frac[1])
-    const m = Number(frac[2])
-    if (Number.isFinite(v) && Number.isFinite(m) && m > 0) {
-      const n = Math.round((v / m) * 10)
-      return Math.max(1, Math.min(10, n))
-    }
-  }
-
-  const percent = s.match(/^(\d{1,3})\s*%$/)
-  if (percent) {
-    const p = Math.max(0, Math.min(100, Number(percent[1])))
-    const n = Math.round((p / 100) * 10)
-    return Math.max(1, Math.min(10, n))
-  }
-
-  const n = Number(s)
-  if (!Number.isFinite(n)) return 5
-  return Math.max(1, Math.min(10, Math.round(n)))
-}
-
-const setIntensity = (ex, value) => {
-  const n = Number(value)
-  ex.intensity = Number.isFinite(n) ? Math.max(1, Math.min(10, Math.round(n))) : 5
+const setIntensityField = (ex, raw) => {
+  const s = String(raw ?? '').slice(0, MAX_FIELD_LEN)
+  ex.intensity = s === '' ? null : s
 }
 
 const updateOrder = (block) => {
@@ -259,14 +222,27 @@ onMounted(async () => {
     }
   }
 
-  // Normalize UI-only fields so selects always show a value
+  // Normalize UI-only fields + tipos API → texto para inputs
   for (const b of (workout.value?.blocks || [])) {
     for (const ex of (b.block_exercises || [])) {
       if (!ex.type) ex.type = 'reps'
       if (ex.selectedCategory == null || ex.selectedCategory === '') ex.selectedCategory = 'all'
       if (ex.search == null) ex.search = ''
       if (ex.dropdownOpen == null) ex.dropdownOpen = false
-      ex.intensity = parseIntensityTo10(ex.intensity)
+
+      if (ex.reps != null && typeof ex.reps !== 'string') ex.reps = String(ex.reps)
+      if (ex.time != null && typeof ex.time !== 'string') ex.time = String(ex.time)
+      if (ex.intensity != null && typeof ex.intensity !== 'string') ex.intensity = String(ex.intensity)
+
+      if (ex.reps != null && String(ex.reps).length > MAX_FIELD_LEN) {
+        ex.reps = String(ex.reps).slice(0, MAX_FIELD_LEN)
+      }
+      if (ex.time != null && String(ex.time).length > MAX_FIELD_LEN) {
+        ex.time = String(ex.time).slice(0, MAX_FIELD_LEN)
+      }
+      if (ex.intensity != null && String(ex.intensity).length > MAX_FIELD_LEN) {
+        ex.intensity = String(ex.intensity).slice(0, MAX_FIELD_LEN)
+      }
     }
   }
 
@@ -515,33 +491,18 @@ onMounted(async () => {
 
                               <input
                                 :value="getValue(ex)"
-                                @input="handleNumericInput(ex, $event)"
-                                :placeholder="ex.type === 'time' ? 'seg' : 'reps'"
-                                inputmode="numeric"
-                                :class="[
-                                  'h-10 w-[86px] shrink-0 rounded-md border px-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15',
-                                  (ex.type === 'reps' && !ex.reps) || (ex.type === 'time' && !ex.time)
-                                    ? 'border-red-500/60 bg-red-500/10'
-                                    : 'border-white/10 bg-white/5'
-                                ]"
+                                maxlength="255"
+                                @input="setMetricValue(ex, $event.target.value)"
+                                class="h-10 min-w-[120px] flex-1 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/90 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 sm:w-[160px] sm:flex-none"
                               />
 
-                              <div class="relative w-full sm:w-auto sm:shrink-0">
-                                <select
-                                  :value="ex.intensity"
-                                  @change="setIntensity(ex, $event.target.value)"
-                                  class="h-10 w-full appearance-none rounded-md border border-white/10 bg-white/5 px-3 pr-9 text-sm text-white/85 outline-none transition focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 scheme-dark sm:w-[160px] md:w-[180px]"
-                                >
-                                  <option v-for="n in 10" :key="n" :value="n">
-                                    Intensidad {{ n }}/10
-                                  </option>
-                                </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-white/45">
-                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                                    <path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                  </svg>
-                                </div>
-                              </div>
+                              <input
+                                :value="ex.intensity ?? ''"
+                                maxlength="255"
+                                placeholder="Intensidad"
+                                @input="setIntensityField(ex, $event.target.value)"
+                                class="h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/90 outline-none transition placeholder:text-white/35 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 sm:w-[180px] md:w-[200px] sm:shrink-0"
+                              />
                             </div>
 
                             <div class="flex items-center gap-2 shrink-0">

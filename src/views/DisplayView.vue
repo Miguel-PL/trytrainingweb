@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { apiFetch } from '../services/api'
 import { validateExerciseMediaUrl } from '../utils/videoUrl'
@@ -8,33 +8,61 @@ const route = useRoute()
 const workout = ref(null)
 const isFullscreen = ref(false)
 
+const getFullscreenElement = () =>
+  document.fullscreenElement ||
+  document.webkitFullscreenElement ||
+  document.msFullscreenElement
+
+const syncFullscreenState = () => {
+  isFullscreen.value = Boolean(getFullscreenElement())
+}
+
 const toggleFullscreen = async () => {
-  const elem = document.documentElement
-  if (!isFullscreen.value) {
-    try {
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen()
-        isFullscreen.value = true
-      }
-    } catch (err) {
-      console.error('Error entering fullscreen:', err)
+  const root = document.documentElement
+  const active = getFullscreenElement()
+
+  try {
+    if (!active) {
+      if (root.requestFullscreen) await root.requestFullscreen()
+      else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen()
+      else if (root.msRequestFullscreen) root.msRequestFullscreen()
+    } else {
+      if (document.exitFullscreen) await document.exitFullscreen()
+      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen()
+      else if (document.msExitFullscreen) document.msExitFullscreen()
     }
-  } else {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-        isFullscreen.value = false
-      }
-    } catch (err) {
-      console.error('Error exiting fullscreen:', err)
-    }
+  } catch (err) {
+    console.error('Error fullscreen:', err)
+  } finally {
+    syncFullscreenState()
   }
 }
 
+let fullscreenSinkAttached = false
+let fullscreenAbort
+
+const attachFullscreenSync = () => {
+  if (fullscreenSinkAttached) return
+  fullscreenSinkAttached = true
+  fullscreenAbort = new AbortController()
+  const opts = { signal: fullscreenAbort.signal }
+  document.addEventListener('fullscreenchange', syncFullscreenState, opts)
+  document.addEventListener('webkitfullscreenchange', syncFullscreenState, opts)
+  document.addEventListener('MSFullscreenChange', syncFullscreenState, opts)
+}
+
+const getPrimaryMetricRawString = (ex) => {
+  if (!ex) return ''
+  const v = ex.value ?? (ex.type === 'time' ? ex.time : ex.reps) ?? ''
+  return String(v)
+}
+
 const formatPrimaryMetric = (ex) => {
-  const value = ex?.value ?? ''
-  if (ex?.type === 'time') return `${value} SEC`
-  return `${value} REPS`
+  const rawStr = getPrimaryMetricRawString(ex)
+  const trimmed = rawStr.trim()
+  if (!trimmed) return ''
+  if (ex?.type === 'time') return trimmed
+  return `${trimmed} REPS`
 }
 
 const getMedia = (ex) => {
@@ -108,17 +136,24 @@ const tvVars = computed(() => {
   const rows = Math.max(1, blocksCount())
   const cols = Math.max(1, maxExercises())
 
-  const base = Math.max(12, Math.round(22 - rows * 1.2 - cols * 1.2))
+  const base = Math.max(11, Math.round(21 - rows * 1.2 - cols * 1.2))
 
   return {
-    '--tv-name': `${isLowDensity.value ? base * 1.5 : base * 1.2}px`,
-    '--tv-meta': `${base * 0.95}px`,
+    '--tv-name': `${isLowDensity.value ? base * 1.35 : base * 1.05}px`,
+    '--tv-meta': `${base * 0.9}px`,
     '--tv-block': `${base * 1.5}px`,
   }
 })
 
 onMounted(async () => {
+  attachFullscreenSync()
+  syncFullscreenState()
   workout.value = await apiFetch(`/workouts/${route.params.id}/display`)
+})
+
+onUnmounted(() => {
+  fullscreenAbort?.abort()
+  fullscreenSinkAttached = false
 })
 </script>
 
@@ -180,16 +215,13 @@ onMounted(async () => {
           <div
             v-for="colIdx in Math.max(1, maxExercises())"
             :key="`${block.name}-${colIdx}`"
-            class="bg-zinc-900 rounded-xl border border-white/10 overflow-hidden flex flex-col"
+            class="bg-zinc-900 rounded-xl border border-white/10 overflow-hidden flex flex-col h-full min-h-0 min-w-0"
             :style="{ gridRow: rowIdx + 1, gridColumn: colIdx + 1 }"
           >
             <template v-if="getExerciseAt(block, colIdx - 1)">
 
-              <!-- VIDEO -->
-              <div
-                class="relative w-full overflow-hidden"
-                :style="{ height: isLowDensity ? '80%' : '75%' }"
-              >
+              <!-- VIDEO: altura fija por ancho (16:9); no se encoge por el texto -->
+              <div class="relative w-full shrink-0 aspect-video overflow-hidden bg-black">
                 <iframe
                   v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
                   :src="getMedia(getExerciseAt(block, colIdx - 1))?.embedUrl"
@@ -206,32 +238,33 @@ onMounted(async () => {
                 <div class="absolute inset-0 bg-black/30" />
               </div>
 
-              <!-- INFO -->
+              <!-- INFO: texto acotado; nombre con ellipsis si no cabe -->
               <div
-                class="flex flex-col flex-1 px-3 py-2"
-                :class="isLowDensity ? 'justify-center gap-2' : 'justify-between'"
+                class="flex flex-col shrink-0 px-3 py-2 min-h-0 overflow-hidden"
+                :class="isLowDensity ? 'gap-1.5' : 'gap-1'"
               >
                 <!-- NOMBRE + MÉTRICA -->
-                <div class="flex items-baseline justify-between gap-2 min-w-0 flex-wrap">
+                <div class="flex items-start justify-between gap-2 min-w-0">
                   <div
-                    class="uppercase font-bold text-white/95 min-w-0"
+                    class="uppercase font-bold text-white/95 min-w-0 flex-1 overflow-hidden leading-snug"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 1.6)'
+                        ? 'calc(var(--tv-name) * 1.35)'
                         : 'calc(var(--tv-name) * 1.0)',
-                      wordBreak: 'break-word',
-                      flex: '1 1 auto'
                     }"
                     :title="getExerciseAt(block, colIdx - 1).name"
                   >
-                    {{ getExerciseAt(block, colIdx - 1).name }}
+                    <span class="block line-clamp-2 break-words">
+                      {{ getExerciseAt(block, colIdx - 1).name }}
+                    </span>
                   </div>
                   <div
-                    class="shrink-0 font-black leading-none text-lime-300"
+                    v-if="formatPrimaryMetric(getExerciseAt(block, colIdx - 1))"
+                    class="shrink-0 max-w-[42%] text-right font-black leading-tight text-lime-300 whitespace-normal break-words line-clamp-2"
                     :style="{
                       fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 1.8)'
-                        : 'calc(var(--tv-name) * 1.1)'
+                        ? 'calc(var(--tv-name) * 1.55)'
+                        : 'calc(var(--tv-name) * 1.05)'
                     }"
                   >
                     {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
@@ -241,11 +274,12 @@ onMounted(async () => {
                 <!-- INTENSIDAD -->
                 <div
                   v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
-                  class="text-white/65 font-semibold"
+                  class="text-white/65 font-semibold min-w-0 truncate"
                   :style="{
-                    fontSize: 'calc(var(--tv-meta) * 1.1)',
+                    fontSize: 'calc(var(--tv-meta) * 1.05)',
                     marginTop: isLowDensity ? '2px' : '4px'
                   }"
+                  :title="`Intensidad · ${parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label}`"
                 >
                   <span class="uppercase tracking-wide text-white/55">Intensidad</span>
                   <span class="mx-2 text-white/35">·</span>
@@ -255,6 +289,9 @@ onMounted(async () => {
                 </div>
 
               </div>
+
+              <!-- Altura extra de la celda (no reduce el vídeo) -->
+              <div class="min-h-0 flex-1" aria-hidden="true" />
 
             </template>
 
