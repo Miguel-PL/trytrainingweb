@@ -27,3 +27,19 @@ El cliente usa `VITE_API_URL` (véase `src/services/api.js`). En **`npm run buil
 ```bash
 npm run build
 ```
+
+## Rutas directas (evitar 404 en `/display/…`, `/workouts`, etc.)
+
+La app usa historial HTML5 (`createWebHistory`). Al entrar o recargar una URL que no sea un fichero real, el servidor debe devolver **`index.html`**.
+
+- **Nginx** (bloque `server` del front):
+
+```nginx
+location / {
+  try_files $uri $uri/ /index.html;
+}
+```
+
+- Tras `npm run build`, en **`dist/`** quedan también **`_redirects`** y **`.htaccess`** (copiados desde `public/`) para hosts tipo Netlify / Apache.
+
+- **Vercel**: en la raíz hay **`vercel.json`** con rewrite a `index.html`.
