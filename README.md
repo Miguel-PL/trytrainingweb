@@ -15,3 +15,9 @@ npm install
 ```bash
 npm run dev
 ```
+
+## Config prod
+Cambiar en vite.config.js a prod: const PROXY_ENV = 'dev'
+
+## Compilar prod
+npm run build
