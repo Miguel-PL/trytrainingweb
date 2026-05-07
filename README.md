@@ -16,8 +16,14 @@ npm install
 npm run dev
 ```
 
-## Config prod
-Cambiar en vite.config.js a prod: const PROXY_ENV = 'dev'
+Las peticiones van a `/api`; Vite reenvía según `vite.config.js` (`PROXY_ENV` + `API_PROXY_TARGET`).
+
+## API en producción
+
+El cliente usa `VITE_API_URL` (véase `src/services/api.js`). En **`npm run build`** Vite carga `.env.production`; ahí está definido `VITE_API_URL=https://api.trytraining.es/api` (el prefijo `/api` debe coincidir con tu Laravel/backend). Para otro dominio o prefijo, cambia ese archivo o exporta la variable en CI antes del build.
 
 ## Compilar prod
+
+```bash
 npm run build
+```
