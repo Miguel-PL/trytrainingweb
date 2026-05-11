@@ -21,6 +21,8 @@ export default defineConfig({
       '/api': {
         target: API_PROXY_TARGET,
         changeOrigin: true,
+        // Subidas grandes / red lenta (el 413 lo suele devolver Nginx/PHP del target, no Vite)
+        timeout: 600_000,
       },
     },
   },

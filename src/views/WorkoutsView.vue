@@ -158,6 +158,7 @@ onMounted(async () => {
         <table class="min-w-full text-left">
           <thead class="text-[11px] tracking-[0.22em] uppercase text-white/45">
             <tr class="border-b border-white/10">
+              <th class="w-20 whitespace-nowrap px-6 py-4">ID</th>
               <th class="px-6 py-4">Workout details</th>
               <th class="px-6 py-4">Fecha</th>
               <th class="px-6 py-4 text-right">Acciones</th>
@@ -170,6 +171,10 @@ onMounted(async () => {
               :key="w.id"
               class="border-b border-white/8 last:border-b-0 hover:bg-white/3"
             >
+              <td class="px-6 py-5 font-mono text-sm tabular-nums text-white/60">
+                {{ w.id }}
+              </td>
+
               <td class="px-6 py-5 font-semibold text-white/90">
                 {{ w.name }}
               </td>

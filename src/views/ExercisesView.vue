@@ -41,10 +41,18 @@ const fetchExercises = async (page = 1) => {
 
   const response = await apiFetch(url)
 
-  exercises.value = response.data
-  currentPage.value = response.current_page
-  lastPage.value = response.last_page
-  totalExercises.value = response.total ?? response.meta?.total ?? null
+  // Laravel paginator: { data: [...], meta: { current_page, last_page, total, ... }, links }
+  const meta = response?.meta
+  const items = Array.isArray(response?.data)
+    ? response.data
+    : Array.isArray(response)
+      ? response
+      : []
+
+  exercises.value = items
+  currentPage.value = meta?.current_page ?? response?.current_page ?? 1
+  lastPage.value = meta?.last_page ?? response?.last_page ?? 1
+  totalExercises.value = meta?.total ?? response?.total ?? null
 }
 
 const requestDeleteExercise = (ex) => {
@@ -94,6 +102,28 @@ const sortedExercises = computed(() => {
     (a?.name || '').localeCompare((b?.name || ''), 'es', { sensitivity: 'base' })
   )
 })
+
+const videoStatusLabel = (ex) => {
+  const s = String(ex?.video_status ?? 'ready').toLowerCase()
+  const map = {
+    ready: 'Listo',
+    uploading: 'Subiendo',
+    processing: 'Procesando',
+    failed: 'Error',
+    pending: 'Pendiente',
+  }
+  return map[s] || 'Sin clasificar'
+}
+
+const videoStatusBadgeClass = (ex) => {
+  const s = String(ex?.video_status ?? 'ready').toLowerCase()
+  if (s === 'ready') return 'border-lime-300/30 bg-lime-400/15 text-lime-200'
+  if (s === 'uploading' || s === 'processing') {
+    return 'border-amber-300/35 bg-amber-400/15 text-amber-100'
+  }
+  if (s === 'failed') return 'border-red-400/35 bg-red-500/15 text-red-200'
+  return 'border-white/15 bg-white/5 text-white/70'
+}
 
 const displayedTotal = computed(() => {
   if (selectedCategory.value === '__none__') return filteredExercises.value.length
@@ -229,6 +259,7 @@ onMounted(async () => {
             <tr class="border-b border-white/10">
               <th class="px-6 py-4">Nombre</th>
               <th class="px-6 py-4">Categorías</th>
+              <th class="px-6 py-4">Estado vídeo</th>
               <th class="px-6 py-4 text-right">Acciones</th>
             </tr>
           </thead>
@@ -256,6 +287,16 @@ onMounted(async () => {
                     {{ c.name }}
                   </span>
                 </div>
+              </td>
+
+              <td class="px-6 py-5">
+                <span
+                  class="inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-extrabold tracking-wide"
+                  :class="videoStatusBadgeClass(ex)"
+                  :title="videoStatusLabel(ex)"
+                >
+                  {{ videoStatusLabel(ex) }}
+                </span>
               </td>
 
               <td class="px-6 py-5">

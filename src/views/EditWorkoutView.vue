@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { apiFetch } from '../services/api'
+import { apiFetch, unwrapWorkoutResponse } from '../services/api'
 import { TrashIcon } from '@heroicons/vue/24/outline'
 import draggable from 'vuedraggable'
 import UiToast from '../components/ui/UiToast.vue'
@@ -212,8 +212,8 @@ const closeDropdown = (ex) => {
 
 onMounted(async () => {
   if (isEdit) {
-    const data = await apiFetch(`/workouts/${route.params.id}`)
-    workout.value = data
+    const raw = await apiFetch(`/workouts/${route.params.id}`)
+    workout.value = unwrapWorkoutResponse(raw) ?? raw
   } else {
     workout.value = {
       name: '',

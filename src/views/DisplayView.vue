@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { apiFetch } from '../services/api'
+import { apiFetch, unwrapWorkoutResponse } from '../services/api'
 import { validateExerciseMediaUrl } from '../utils/videoUrl'
 
 const route = useRoute()
@@ -65,9 +65,15 @@ const formatPrimaryMetric = (ex) => {
   return `${trimmed} REPS`
 }
 
+/** El JSON de display a veces trae nombre/vídeo en `exercise.*` en lugar de plano. */
+const exerciseVideoCandidate = (ex) =>
+  String(ex?.video_url ?? ex?.videoUrl ?? ex?.video ?? ex?.exercise?.video_url ?? '').trim()
+
+const exerciseDisplayName = (ex) =>
+  String(ex?.name ?? ex?.exercise?.name ?? '').trim()
+
 const getMedia = (ex) => {
-  const candidate = ex?.video_url || ex?.videoUrl || ex?.video || ''
-  const v = validateExerciseMediaUrl(candidate)
+  const v = validateExerciseMediaUrl(exerciseVideoCandidate(ex))
   return v.ok ? v : null
 }
 
@@ -115,16 +121,18 @@ const blockGridStyle = () => {
   const rows = Math.max(1, blocksCount())
   const cols = Math.max(1, maxExercises())
 
+  // minmax(0, 1fr): reparte el alto exacto del viewport sin forzar min-content (evita scroll vertical).
+  // Columnas con minmax(0, 1fr) evitan desbordamiento horizontal cuando hay muchas tarjetas.
   if (isLowDensity.value) {
     return {
-      gridTemplateRows: `repeat(${rows}, 1fr)`,
-      gridTemplateColumns: `minmax(80px, 120px) repeat(${cols}, 1fr)`,
+      gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+      gridTemplateColumns: `minmax(48px, 120px) repeat(${cols}, minmax(0, 1fr))`,
     }
   }
 
   return {
-    gridTemplateRows: `repeat(${rows}, 1fr)`,
-    gridTemplateColumns: `minmax(56px, 72px) repeat(${cols}, 1fr)`,
+    gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+    gridTemplateColumns: `minmax(40px, 72px) repeat(${cols}, minmax(0, 1fr))`,
   }
 }
 
@@ -148,7 +156,8 @@ const tvVars = computed(() => {
 onMounted(async () => {
   attachFullscreenSync()
   syncFullscreenState()
-  workout.value = await apiFetch(`/workouts/${route.params.id}/display`)
+  const raw = await apiFetch(`/workouts/${route.params.id}/display`)
+  workout.value = unwrapWorkoutResponse(raw) ?? raw
 })
 
 onUnmounted(() => {
@@ -164,7 +173,7 @@ onUnmounted(() => {
       Cargando...
     </div>
 
-    <div v-else class="h-full w-full p-2 flex flex-col gap-2">
+    <div v-else class="flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden p-2">
 
       <!-- HEADER -->
       <div class="shrink-0 flex items-start justify-between">
@@ -194,13 +203,13 @@ onUnmounted(() => {
       </div>
 
       <!-- GRID -->
-      <div class="grid flex-1 gap-2 min-h-0" :style="blockGridStyle()">
+      <div class="grid min-h-0 min-w-0 flex-1 gap-2 overflow-hidden" :style="blockGridStyle()">
 
         <template v-for="(block, rowIdx) in workout.blocks" :key="block.name">
 
           <!-- BLOQUE -->
           <div
-            class="flex items-center justify-center bg-white/5 rounded-xl border border-white/10"
+            class="flex min-h-0 items-center justify-center rounded-xl border border-white/10 bg-white/5"
             :style="{ gridRow: rowIdx + 1, gridColumn: 1 }"
           >
             <div
@@ -215,27 +224,54 @@ onUnmounted(() => {
           <div
             v-for="colIdx in Math.max(1, maxExercises())"
             :key="`${block.name}-${colIdx}`"
-            class="bg-zinc-900 rounded-xl border border-white/10 overflow-hidden flex flex-col h-full min-h-0 min-w-0"
+            class="flex h-full min-h-0 min-w-0 flex-col rounded-xl border border-white/10 bg-zinc-900"
             :style="{ gridRow: rowIdx + 1, gridColumn: colIdx + 1 }"
           >
             <template v-if="getExerciseAt(block, colIdx - 1)">
 
-              <!-- VIDEO: altura fija por ancho (16:9); no se encoge por el texto -->
-              <div class="relative w-full shrink-0 aspect-video overflow-hidden bg-black">
+              <!-- VIDEO: ocupa el hueco flexible de la celda (altura total pantalla − cabecera − texto) -->
+              <div class="relative min-h-0 w-full flex-1 overflow-hidden bg-black">
                 <iframe
                   v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
                   :src="getMedia(getExerciseAt(block, colIdx - 1))?.embedUrl"
-                  class="absolute top-1/2 left-1/2 w-[140%] h-[140%] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                  title="Vídeo del ejercicio"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  class="pointer-events-none absolute left-1/2 top-1/2 h-[142%] w-[142%] -translate-x-1/2 -translate-y-1/2 border-0"
                 />
 
                 <video
                   v-else-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'file'"
                   :src="getMedia(getExerciseAt(block, colIdx - 1))?.url"
-                  autoplay loop muted playsinline
-                  class="absolute inset-0 w-full h-full object-cover"
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  preload="auto"
+                  class="absolute inset-0 h-full w-full object-cover"
                 />
 
-                <div class="absolute inset-0 bg-black/30" />
+                <!--
+                  YouTube no permite ocultar por completo los overlays (pause / atrás / siguiente)
+                  dentro del iframe; en bucles cortos reaparecen cada ciclo. Esta capa tapa la banda
+                  inferior donde suelen dibujarse (sin pointer-events: no bloqueamos el vídeo).
+                -->
+                <div
+                  v-if="getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'"
+                  class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[28%]"
+                  style="background: linear-gradient(to top, rgb(0 0 0) 0%, rgb(0 0 0 / 0.96) 32%, transparent 100%);"
+                  aria-hidden="true"
+                />
+
+                <div
+                  class="pointer-events-none absolute inset-0 z-[11]"
+                  :class="
+                    getMedia(getExerciseAt(block, colIdx - 1))?.kind === 'youtube'
+                      ? 'bg-black/25'
+                      : 'bg-black/30'
+                  "
+                />
               </div>
 
               <!-- INFO: texto acotado; nombre con ellipsis si no cabe -->
@@ -252,10 +288,10 @@ onUnmounted(() => {
                         ? 'calc(var(--tv-name) * 1.35)'
                         : 'calc(var(--tv-name) * 1.0)',
                     }"
-                    :title="getExerciseAt(block, colIdx - 1).name"
+                    :title="exerciseDisplayName(getExerciseAt(block, colIdx - 1))"
                   >
                     <span class="block line-clamp-2 break-words">
-                      {{ getExerciseAt(block, colIdx - 1).name }}
+                      {{ exerciseDisplayName(getExerciseAt(block, colIdx - 1)) }}
                     </span>
                   </div>
                   <div
@@ -289,9 +325,6 @@ onUnmounted(() => {
                 </div>
 
               </div>
-
-              <!-- Altura extra de la celda (no reduce el vídeo) -->
-              <div class="min-h-0 flex-1" aria-hidden="true" />
 
             </template>
 

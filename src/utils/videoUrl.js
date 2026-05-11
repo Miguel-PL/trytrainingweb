@@ -1,4 +1,4 @@
-const SUPPORTED_EXTENSIONS = ['mp4', 'webm', 'ogg']
+const SUPPORTED_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov']
 
 const isYouTubeHost = (host) => {
   const h = host.toLowerCase()
@@ -44,6 +44,7 @@ export function buildYouTubeEmbedUrl(input) {
   if (!id) return null
 
   // Loop in YouTube embed requires playlist=<id>
+  // controls=0: sin barra de controles; mute+autoplay: reproducción permitida en navegadores
   const params = new URLSearchParams({
     autoplay: '1',
     mute: '1',
@@ -58,6 +59,11 @@ export function buildYouTubeEmbedUrl(input) {
     loop: '1',
     playlist: id,
   })
+
+  // Refuerzo recomendado por Google para embeds (mejor comportamiento del reproductor)
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    params.set('origin', window.location.origin)
+  }
 
   return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?${params.toString()}`
 }
@@ -85,17 +91,20 @@ export function validateExerciseMediaUrl(input) {
   }
 
   if (host.includes('vimeo.com')) {
-    return { ok: false, reason: 'Vimeo no está soportado. Usa YouTube o un enlace directo a .mp4/.webm/.ogg.' }
+    return {
+      ok: false,
+      reason: 'Vimeo no está soportado. Usa YouTube o un enlace directo a .mp4/.webm/.ogg/.mov.',
+    }
   }
 
-  const pathname = url.pathname.toLowerCase()
+  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '') || '/'
   const extMatch = pathname.match(/\.([a-z0-9]+)$/)
   const ext = extMatch?.[1] || ''
 
   if (!SUPPORTED_EXTENSIONS.includes(ext)) {
     return {
       ok: false,
-      reason: `La URL debe apuntar a un archivo de vídeo (${SUPPORTED_EXTENSIONS.map(e => '.' + e).join(', ')}).`,
+      reason: `La URL debe apuntar a YouTube o a un archivo de vídeo (${SUPPORTED_EXTENSIONS.map(e => '.' + e).join(', ')}).`,
     }
   }
 
