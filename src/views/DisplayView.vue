@@ -93,7 +93,7 @@ const parseIntensity = (raw) => {
   }
 
   const v = Number(s)
-  if (!Number.isFinite(v)) return null
+  if (!Number.isFinite(v)) return { label: s }
   return { label: `${v}/10` }
 }
 
@@ -274,29 +274,41 @@ onUnmounted(() => {
                 />
               </div>
 
-              <!-- INFO: texto acotado; nombre con ellipsis si no cabe -->
-              <div
-                class="flex flex-col shrink-0 px-3 py-2 min-h-0 overflow-hidden"
-                :class="isLowDensity ? 'gap-1.5' : 'gap-1'"
-              >
-                <!-- NOMBRE + MÉTRICA -->
-                <div class="flex items-start justify-between gap-2 min-w-0">
+              <!-- INFO: texto acotado en una sola línea para no tapar el vídeo -->
+              <div class="flex items-center justify-between gap-3 shrink-0 px-3 py-2 min-h-0 overflow-hidden">
+                <!-- NOMBRE -->
+                <div
+                  class="uppercase font-bold text-white/95 min-w-0 flex-1 overflow-hidden leading-snug"
+                  :style="{
+                    fontSize: isLowDensity
+                      ? 'calc(var(--tv-name) * 1.35)'
+                      : 'calc(var(--tv-name) * 1.0)',
+                  }"
+                  :title="exerciseDisplayName(getExerciseAt(block, colIdx - 1))"
+                >
+                  <span class="block truncate">
+                    {{ exerciseDisplayName(getExerciseAt(block, colIdx - 1)) }}
+                  </span>
+                </div>
+
+                <!-- MÉTRICAS -->
+                <div class="flex items-center shrink-0 gap-6">
+                  <!-- INTENSIDAD -->
                   <div
-                    class="uppercase font-bold text-white/95 min-w-0 flex-1 overflow-hidden leading-snug"
-                    :style="{
-                      fontSize: isLowDensity
-                        ? 'calc(var(--tv-name) * 1.35)'
-                        : 'calc(var(--tv-name) * 1.0)',
-                    }"
-                    :title="exerciseDisplayName(getExerciseAt(block, colIdx - 1))"
+                    v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
+                    class="text-white/65 font-semibold flex items-center gap-1.5"
+                    :style="{ fontSize: 'calc(var(--tv-meta) * 1.05)' }"
+                    :title="`Esfuerzo · ${parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label}`"
                   >
-                    <span class="block line-clamp-2 break-words">
-                      {{ exerciseDisplayName(getExerciseAt(block, colIdx - 1)) }}
+                    <span class="font-extrabold text-white/80">
+                      {{ parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label }}
                     </span>
                   </div>
+
+                  <!-- METRICA PPAL -->
                   <div
                     v-if="formatPrimaryMetric(getExerciseAt(block, colIdx - 1))"
-                    class="shrink-0 max-w-[42%] text-right font-black leading-tight text-lime-300 whitespace-normal break-words line-clamp-2"
+                    class="font-black leading-tight text-lime-300"
                     :style="{
                       fontSize: isLowDensity
                         ? 'calc(var(--tv-name) * 1.55)'
@@ -306,24 +318,6 @@ onUnmounted(() => {
                     {{ formatPrimaryMetric(getExerciseAt(block, colIdx - 1)) }}
                   </div>
                 </div>
-
-                <!-- INTENSIDAD -->
-                <div
-                  v-if="parseIntensity(getExerciseAt(block, colIdx - 1).intensity)"
-                  class="text-white/65 font-semibold min-w-0 truncate"
-                  :style="{
-                    fontSize: 'calc(var(--tv-meta) * 1.05)',
-                    marginTop: isLowDensity ? '2px' : '4px'
-                  }"
-                  :title="`Intensidad · ${parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label}`"
-                >
-                  <span class="uppercase tracking-wide text-white/55">Intensidad</span>
-                  <span class="mx-2 text-white/35">·</span>
-                  <span class="font-extrabold text-white/80">
-                    {{ parseIntensity(getExerciseAt(block, colIdx - 1).intensity).label }}
-                  </span>
-                </div>
-
               </div>
 
             </template>

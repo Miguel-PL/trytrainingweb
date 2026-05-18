@@ -499,7 +499,7 @@ onMounted(async () => {
                               <input
                                 :value="ex.intensity ?? ''"
                                 maxlength="255"
-                                placeholder="Intensidad"
+                                placeholder="Esfuerzo"
                                 @input="setIntensityField(ex, $event.target.value)"
                                 class="h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white/90 outline-none transition placeholder:text-white/35 focus:border-lime-400/40 focus:ring-2 focus:ring-lime-400/15 sm:w-[180px] md:w-[200px] sm:shrink-0"
                               />
