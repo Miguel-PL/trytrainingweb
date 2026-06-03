@@ -183,7 +183,7 @@ const getFilteredExercises = (ex) => {
       return matchName && matchCategory
     })
     .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, 10)
+    .slice(0, 100)
 }
 
 const handleSelectExercise = (ex) => {
@@ -436,7 +436,7 @@ onMounted(async () => {
                             <!-- Dropdown de búsqueda -->
                             <div
                               v-if="(ex.dropdownOpen || ex.search) && getFilteredExercises(ex).length"
-                              class="absolute z-10 mt-2 w-full overflow-hidden rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
+                              class="absolute z-10 mt-2 max-h-80 w-full overflow-y-auto rounded-md border border-white/10 bg-black/95 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.85)]"
                             >
                               <button
                                 v-for="e in getFilteredExercises(ex)"
