@@ -23,7 +23,7 @@ La aplicación permite visualizar y administrar rutinas de entrenamiento mediant
 ## Instalación
 
 ```bash
-git clone <url-del-repositorio>
+git clone https://github.com/Miguel-PL/trytrainingweb.git
 cd gym-workouts-frontend
 npm install
 ```
