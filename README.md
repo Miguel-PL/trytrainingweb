@@ -64,7 +64,7 @@ trytrainingweb/
 ## Requisitos
 
 - **Node.js** `^20.19.0 || >=22.12.0` (ver `.nvmrc`).
-- Un **backend API** (Laravel) accesible. Este repositorio contiene **solo el frontend**; la API se despliega por separado.
+- Un **backend API** (Laravel) accesible. Este repositorio contiene **solo el frontend**; la API se despliega por separado: [github.com/Miguel-PL/trytraining](https://github.com/Miguel-PL/trytraining).
 
 ## Instalación
 
