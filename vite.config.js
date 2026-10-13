@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-/** Cambia solo esto: 'dev' | 'prod' */
-const PROXY_ENV = 'prod'
+/** Cambia solo esto: 'local' | 'dev' | 'prod' */
+const PROXY_ENV = 'local'
 
 const API_PROXY_TARGET = {
+  local: 'http://127.0.0.1:8000',
   dev: 'http://trytraining.test',
   prod: 'https://api.trytraining.es',
 }[PROXY_ENV]
