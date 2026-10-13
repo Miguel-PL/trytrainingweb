@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Env files: no subir secretos. Solo se versionan la plantilla y la config
+# de build con la URL publica de la API.
+.env
+.env.*
+!.env.example
+!.env.production
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

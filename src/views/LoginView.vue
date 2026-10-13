@@ -18,8 +18,6 @@ const isValidEmail = (value) => {
 }
 
 const login = async () => {
-  console.log('LOGIN CLICK')
-
   const normalizedEmail = email.value.trim()
   if (!isValidEmail(normalizedEmail)) {
     showToast('error', 'Correo inválido', 'Introduce un correo válido para continuar.')
@@ -36,8 +34,6 @@ const login = async () => {
       },
     })
 
-    console.log('RESPONSE:', data)
-
     const token = data?.token || data?.access_token
     if (!token) throw new Error('Login OK pero falta token en la respuesta')
     localStorage.setItem('token', token)
@@ -46,7 +42,7 @@ const login = async () => {
     router.push(redirect || '/workouts')
 
   } catch (error) {
-    console.error('ERROR FETCH:', error)
+    console.error('[login]', error?.message)
     showToast('error', 'Error de login', error?.message || 'No se pudo iniciar sesión.')
   }
 }
